@@ -174,6 +174,7 @@ export interface MindMapMessages {
 		activeFile: string;            // Active file:
 
 		// Context menu
+		createNewFile: string;         // New openMindMap file
 		contextEdit: string;           // Edit
 		contextCopy: string;           // Copy
 		contextPaste: string;          // Paste

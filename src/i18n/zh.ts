@@ -168,6 +168,7 @@ export const zh: MindMapMessages = {
 		activeFile: '当前文件：',
 
 		// Context menu
+		createNewFile: '新建 openMindMap 文件',
 		contextEdit: '编辑',
 		contextCopy: '复制',
 		contextPaste: '粘贴',

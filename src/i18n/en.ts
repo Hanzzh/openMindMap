@@ -168,6 +168,7 @@ export const en: MindMapMessages = {
 		activeFile: 'Active file:',
 
 		// Context menu
+		createNewFile: 'New openMindMap file',
 		contextEdit: 'Edit',
 		contextCopy: 'Copy',
 		contextPaste: 'Paste',

@@ -340,7 +340,8 @@ export class NodeEditor {
 			const editHint = this.config.isMobile
 				? this.messages.ui.editHintMobile
 				: this.messages.ui.editHintDesktop;
-			hintElement.innerHTML = editHint;
+			// Use textContent for security (XSS prevention)
+			hintElement.textContent = editHint;
 			document.body.appendChild(hintElement);
 		}
 		hintElement.classList.add('show');

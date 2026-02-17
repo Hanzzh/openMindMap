@@ -130,8 +130,9 @@ export class EncryptionUtil {
 			// Decode to string
 			return new TextDecoder().decode(decryptedData);
 		} catch (error) {
-			// Return original data if decryption fails (for backward compatibility)
-			return encryptedData;
+			// Decryption should not fail silently - throw error to indicate problem
+			console.error('Failed to decrypt API key:', error);
+			throw new Error('Failed to decrypt API key. Please re-enter your API key in settings.');
 		}
 	}
 

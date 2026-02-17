@@ -1,11 +1,11 @@
 {
-	"id": "openMindMap",
+	"id": "open-mind-map",
 	"name": "openMindMap",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
 	"description": "Transform markdown files with #mindmap into interactive mind maps with AI-powered node suggestions and OpenAI-compatible API integration",
 	"author": "Han",
-	"authorUrl": "",
+	"authorUrl": "https://github.com/Hanzzh",
 	"fundingUrl": "",
 	"isDesktopOnly": false
 }

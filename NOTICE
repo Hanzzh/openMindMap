@@ -1,0 +1,33 @@
+# Third-Party Attributions
+
+This plugin uses the following third-party libraries:
+
+## D3.js
+- **License**: BSD-3-Clause
+- **Website**: https://d3js.org/
+- **Copyright**: Mike Bostock and contributors
+- **Description**: Data visualization library for interactive tree rendering
+
+## Obsidian API
+- **License**: MIT
+- **Website**: https://github.com/obsidianmd/obsidian-api
+- **Copyright**: Obsidian
+- **Description**: Plugin framework for Obsidian note-taking application
+
+## tslib
+- **License**: MIT
+- **Website**: https://github.com/Microsoft/tslib
+- **Copyright**: Microsoft Corporation
+- **Description**: TypeScript runtime library
+
+## ESBuild
+- **License**: MIT
+- **Website**: https://esbuild.github.io/
+- **Copyright**: Evan Wallace
+- **Description**: Bundler and minification tool (development only)
+
+## TypeScript
+- **License**: Apache-2.0
+- **Website**: https://www.typescriptlang.org/
+- **Copyright**: Microsoft Corporation
+- **Description**: TypeScript compiler and type definitions (development only)

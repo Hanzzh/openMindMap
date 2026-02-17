@@ -195,6 +195,19 @@ export class AIClient {
 				throw new Error('Node text is empty. Please add text to the node first.');
 			}
 
+			// Validate API configuration before making request
+			this.validateConfiguration();
+
+			// Validate prompt template length
+			if (promptTemplate && promptTemplate.length > 10000) {
+				throw new Error('Prompt template is too long (max 10000 characters).');
+			}
+
+			// Validate system message length
+			if (systemMessage && systemMessage.length > 5000) {
+				throw new Error('System message is too long (max 5000 characters).');
+			}
+
 			// 1. Build user prompt by replacing variables
 
 			const userPrompt = AIPrompts.buildUserPrompt(promptTemplate, context);
@@ -281,6 +294,47 @@ export class AIClient {
 	isConfigured(): boolean {
 		return !!(this.config.apiBaseUrl && this.config.apiBaseUrl.trim() !== '' &&
 		         this.config.apiKey && this.config.apiKey.trim() !== '');
+	}
+
+	/**
+	 * Validate API configuration
+	 * @throws Error if configuration is invalid
+	 */
+	private validateConfiguration(): void {
+		// Check API key
+		if (!this.config.apiKey || this.config.apiKey.trim() === '') {
+			throw new Error('API key is not configured. Please enter your API key in settings.');
+		}
+
+		// Check API base URL
+		if (!this.config.apiBaseUrl || this.config.apiBaseUrl.trim() === '') {
+			throw new Error('API base URL is not configured.');
+		}
+
+		// Validate URL format
+		try {
+			const url = new URL(this.config.apiBaseUrl);
+			// Ensure it's using HTTPS (or localhost for development)
+			if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+				throw new Error('Invalid URL protocol.');
+			}
+			// Warn about HTTP (only allow for localhost)
+			if (url.protocol === 'http:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
+				throw new Error('HTTP is not secure. Please use HTTPS.');
+			}
+		} catch (urlError) {
+			throw new Error(`Invalid API base URL format: ${this.config.apiBaseUrl}`);
+		}
+
+		// Check model name
+		if (!this.config.model || this.config.model.trim() === '') {
+			throw new Error('Model name is not configured.');
+		}
+
+		// Validate model name length and characters
+		if (this.config.model.length > 100) {
+			throw new Error('Model name is too long (max 100 characters).');
+		}
 	}
 
 	/**

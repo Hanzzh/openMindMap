@@ -189,7 +189,7 @@ export default class MindMapPlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on('file-menu', (menu, file) => {
 				menu.addItem((item) => {
-					item.setTitle('新建 openMindMap 文件')
+					item.setTitle(this.messages.ui.createNewFile)
 						.setIcon('brain')
 						.onClick(async () => {
 							await this.createNewMindMapFile(file);
@@ -209,7 +209,10 @@ export default class MindMapPlugin extends Plugin {
 	}
 
 	onunload() {
-
+		// Clean up service references
+		this.mindMapService = null;
+		this.aiClient = null;
+		this.configManager = null;
 	}
 
 	async loadSettings() {
@@ -282,6 +285,7 @@ export default class MindMapPlugin extends Plugin {
 			styleEl.id = 'mind-map-styles';
 			document.head.appendChild(styleEl);
 		} catch (error) {
+			console.error('Failed to load mind map styles:', error);
 		}
 	}
 
@@ -817,14 +821,32 @@ class MindMapView extends ItemView {
 
 class MindMapSettingTab extends PluginSettingTab {
 	plugin: MindMapPlugin;
+	private testButtonHandler: (() => void) | null = null;
+	private testButton: HTMLButtonElement | null = null;
 
 	constructor(app: App, plugin: MindMapPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
+	hide(): void {
+		// Clean up event listener when settings tab is hidden
+		if (this.testButton && this.testButtonHandler) {
+			this.testButton.removeEventListener('click', this.testButtonHandler);
+			this.testButton = null;
+			this.testButtonHandler = null;
+		}
+	}
+
 	display(): void {
 		const {containerEl} = this;
+
+		// Clean up previous event listener
+		if (this.testButton && this.testButtonHandler) {
+			this.testButton.removeEventListener('click', this.testButtonHandler);
+			this.testButton = null;
+			this.testButtonHandler = null;
+		}
 
 		containerEl.empty();
 
@@ -898,10 +920,12 @@ class MindMapSettingTab extends PluginSettingTab {
 
 		// Security notice
 		const securityNotice = containerEl.createDiv({ cls: 'setting-item-security-notice' });
-		securityNotice.innerHTML = `
-			<strong>🔒 Security:</strong> Your API key is encrypted using AES-GCM (256-bit) before storage.
-			The encrypted key is stored in <code>data.json</code> and can only be decrypted on this device.
-		`;
+		securityNotice.createEl('strong', { text: '🔒 Security:' });
+		securityNotice.appendText(' Your API key is encrypted using AES-GCM (256-bit) before storage. ');
+		const codeEl = securityNotice.createEl('code', { text: 'data.json' });
+		securityNotice.appendText(' The encrypted key is stored in ');
+		securityNotice.appendChild(codeEl.cloneNode(true));
+		securityNotice.appendText(' and can only be decrypted on this device.');
 
 		// API Base URL
 		new Setting(containerEl)
@@ -961,7 +985,8 @@ class MindMapSettingTab extends PluginSettingTab {
 
 		const testButtonControl = testButtonContainer.createDiv({ cls: 'setting-item-control' });
 
-		const testButton = testButtonControl.createEl('button', {
+		// Store reference to button for cleanup
+		this.testButton = testButtonControl.createEl('button', {
 			text: 'Test Connection',
 			cls: 'mod-cta'
 		});
@@ -969,8 +994,8 @@ class MindMapSettingTab extends PluginSettingTab {
 		// Result message element
 		let resultEl: HTMLElement | null = null;
 
-		// Test connection button handler
-		testButton.addEventListener('click', async () => {
+		// Test connection button handler - store reference for cleanup
+		this.testButtonHandler = async () => {
 			// Remove previous result if exists
 			if (resultEl) {
 				resultEl.remove();
@@ -978,8 +1003,8 @@ class MindMapSettingTab extends PluginSettingTab {
 			}
 
 			// Update button state
-			testButton.textContent = 'Testing...';
-			testButton.disabled = true;
+			this.testButton!.textContent = 'Testing...';
+			this.testButton!.disabled = true;
 
 			try {
 				// Add 10 second timeout
@@ -1019,10 +1044,12 @@ class MindMapSettingTab extends PluginSettingTab {
 				new Notice(this.plugin.messages.notices.connectionTestFailed);
 			} finally {
 				// Restore button state
-				testButton.textContent = 'Test Connection';
-				testButton.disabled = false;
+				this.testButton!.textContent = 'Test Connection';
+				this.testButton!.disabled = false;
 			}
-		});
+		};
+
+		this.testButton.addEventListener('click', this.testButtonHandler);
 
 		// AI Prompts Configuration
 		containerEl.createEl('h3', {text: 'AI Prompt Configuration'});
@@ -1059,17 +1086,23 @@ class MindMapSettingTab extends PluginSettingTab {
 
 		// Variables Reference
 		const variablesRef = containerEl.createDiv({ cls: 'prompt-variables-reference' });
-		variablesRef.innerHTML = `
-			<strong>Available variables:</strong>
-			<ul>
-				<li><code>{nodeText}</code> - Current node text</li>
-				<li><code>{level}</code> - Node hierarchy level (0=root)</li>
-				<li><code>{parentContext}</code> - Parent node info (if exists)</li>
-				<li><code>{siblingsContext}</code> - Sibling nodes (if exists)</li>
-				<li><code>{existingChildren}</code> - Already existing children</li>
-				<li><code>{centralTopic}</code> - Central topic (root node text)</li>
-			</ul>
-		`;
+		variablesRef.createEl('strong', { text: 'Available variables:' });
+
+		const ul = variablesRef.createEl('ul');
+		const variables = [
+			{ code: '{nodeText}', desc: 'Current node text' },
+			{ code: '{level}', desc: 'Node hierarchy level (0=root)' },
+			{ code: '{parentContext}', desc: 'Parent node info (if exists)' },
+			{ code: '{siblingsContext}', desc: 'Sibling nodes (if exists)' },
+			{ code: '{existingChildren}', desc: 'Already existing children' },
+			{ code: '{centralTopic}', desc: 'Central topic (root node text)' }
+		];
+
+		for (const v of variables) {
+			const li = ul.createEl('li');
+			li.createEl('code', { text: v.code });
+			li.appendText(` - ${v.desc}`);
+		}
 
 		// Reset Prompts Button
 		new Setting(containerEl)

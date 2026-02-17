@@ -4504,7 +4504,7 @@ var NodeRenderer = class {
         // Y偏移
       );
       return transform2;
-    });
+    }).attr("role", "button").attr("aria-label", (d) => `Mind map node: ${d.data.text}`).attr("tabindex", "0").attr("aria-level", (d) => d.depth + 1);
     const nodeRects = nodeElements.append("rect").attr("class", "node-rect").attr("width", (d) => {
       const dims = this.textMeasurer.getNodeDimensions(d.depth, d.data.text);
       return dims.width;
@@ -6049,7 +6049,7 @@ var NodeEditor = class {
       hintElement = document.createElement("div");
       hintElement.className = "editing-hint";
       const editHint = this.config.isMobile ? this.messages.ui.editHintMobile : this.messages.ui.editHintDesktop;
-      hintElement.innerHTML = editHint;
+      hintElement.textContent = editHint;
       document.body.appendChild(hintElement);
     }
     hintElement.classList.add("show");
@@ -7354,6 +7354,7 @@ var D3FileHandler = class {
       const content = await this.app.vault.read(file);
       return isMindMapFile(content, file.extension);
     } catch (error) {
+      console.error("Failed to check if file is mind map:", file.path, error);
       return false;
     }
   }
@@ -7553,6 +7554,7 @@ var en = {
     stateLoaded: "State loaded:",
     activeFile: "Active file:",
     // Context menu
+    createNewFile: "New openMindMap file",
     contextEdit: "Edit",
     contextCopy: "Copy",
     contextPaste: "Paste",
@@ -7709,6 +7711,7 @@ var zh = {
     stateLoaded: "\u72B6\u6001\u5DF2\u52A0\u8F7D\uFF1A",
     activeFile: "\u5F53\u524D\u6587\u4EF6\uFF1A",
     // Context menu
+    createNewFile: "\u65B0\u5EFA openMindMap \u6587\u4EF6",
     contextEdit: "\u7F16\u8F91",
     contextCopy: "\u590D\u5236",
     contextPaste: "\u7C98\u8D34",
@@ -8644,6 +8647,13 @@ var AIClient = class {
       if (!context.nodeText || context.nodeText.trim() === "") {
         throw new Error("Node text is empty. Please add text to the node first.");
       }
+      this.validateConfiguration();
+      if (promptTemplate && promptTemplate.length > 1e4) {
+        throw new Error("Prompt template is too long (max 10000 characters).");
+      }
+      if (systemMessage && systemMessage.length > 5e3) {
+        throw new Error("System message is too long (max 5000 characters).");
+      }
       const userPrompt = AIPrompts.buildUserPrompt(promptTemplate, context);
       const response = await this.chat(userPrompt, systemMessage);
       const suggestions = this.parseJSONResponse(response);
@@ -8697,6 +8707,35 @@ var AIClient = class {
    */
   isConfigured() {
     return !!(this.config.apiBaseUrl && this.config.apiBaseUrl.trim() !== "" && this.config.apiKey && this.config.apiKey.trim() !== "");
+  }
+  /**
+   * Validate API configuration
+   * @throws Error if configuration is invalid
+   */
+  validateConfiguration() {
+    if (!this.config.apiKey || this.config.apiKey.trim() === "") {
+      throw new Error("API key is not configured. Please enter your API key in settings.");
+    }
+    if (!this.config.apiBaseUrl || this.config.apiBaseUrl.trim() === "") {
+      throw new Error("API base URL is not configured.");
+    }
+    try {
+      const url = new URL(this.config.apiBaseUrl);
+      if (url.protocol !== "https:" && url.protocol !== "http:") {
+        throw new Error("Invalid URL protocol.");
+      }
+      if (url.protocol === "http:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+        throw new Error("HTTP is not secure. Please use HTTPS.");
+      }
+    } catch (urlError) {
+      throw new Error(`Invalid API base URL format: ${this.config.apiBaseUrl}`);
+    }
+    if (!this.config.model || this.config.model.trim() === "") {
+      throw new Error("Model name is not configured.");
+    }
+    if (this.config.model.length > 100) {
+      throw new Error("Model name is too long (max 100 characters).");
+    }
   }
   /**
    * Validate API response structure and extract content
@@ -8841,7 +8880,8 @@ var EncryptionUtil = class {
       );
       return new TextDecoder().decode(decryptedData);
     } catch (error) {
-      return encryptedData;
+      console.error("Failed to decrypt API key:", error);
+      throw new Error("Failed to decrypt API key. Please re-enter your API key in settings.");
     }
   }
   /**
@@ -8987,7 +9027,7 @@ var MindMapPlugin = class extends import_obsidian6.Plugin {
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file) => {
         menu.addItem((item) => {
-          item.setTitle("\u65B0\u5EFA openMindMap \u6587\u4EF6").setIcon("brain").onClick(async () => {
+          item.setTitle(this.messages.ui.createNewFile).setIcon("brain").onClick(async () => {
             await this.createNewMindMapFile(file);
           });
         });
@@ -9001,6 +9041,9 @@ var MindMapPlugin = class extends import_obsidian6.Plugin {
     });
   }
   onunload() {
+    this.mindMapService = null;
+    this.aiClient = null;
+    this.configManager = null;
   }
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -9052,6 +9095,7 @@ var MindMapPlugin = class extends import_obsidian6.Plugin {
       styleEl.id = "mind-map-styles";
       document.head.appendChild(styleEl);
     } catch (error) {
+      console.error("Failed to load mind map styles:", error);
     }
   }
   // Replace current view with mind map view
@@ -9392,10 +9436,24 @@ var MindMapView = class _MindMapView extends import_obsidian6.ItemView {
 var MindMapSettingTab = class extends import_obsidian6.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
+    this.testButtonHandler = null;
+    this.testButton = null;
     this.plugin = plugin;
+  }
+  hide() {
+    if (this.testButton && this.testButtonHandler) {
+      this.testButton.removeEventListener("click", this.testButtonHandler);
+      this.testButton = null;
+      this.testButtonHandler = null;
+    }
   }
   display() {
     const { containerEl } = this;
+    if (this.testButton && this.testButtonHandler) {
+      this.testButton.removeEventListener("click", this.testButtonHandler);
+      this.testButton = null;
+      this.testButtonHandler = null;
+    }
     containerEl.empty();
     containerEl.createEl("h2", { text: "Settings for openMindMap Plugin" });
     containerEl.createEl("h3", { text: "Device Settings" });
@@ -9427,10 +9485,12 @@ var MindMapSettingTab = class extends import_obsidian6.PluginSettingTab {
       cls: "setting-item-description"
     });
     const securityNotice = containerEl.createDiv({ cls: "setting-item-security-notice" });
-    securityNotice.innerHTML = `
-			<strong>\u{1F512} Security:</strong> Your API key is encrypted using AES-GCM (256-bit) before storage.
-			The encrypted key is stored in <code>data.json</code> and can only be decrypted on this device.
-		`;
+    securityNotice.createEl("strong", { text: "\u{1F512} Security:" });
+    securityNotice.appendText(" Your API key is encrypted using AES-GCM (256-bit) before storage. ");
+    const codeEl = securityNotice.createEl("code", { text: "data.json" });
+    securityNotice.appendText(" The encrypted key is stored in ");
+    securityNotice.appendChild(codeEl.cloneNode(true));
+    securityNotice.appendText(" and can only be decrypted on this device.");
     new import_obsidian6.Setting(containerEl).setName("OpenAI API Base URL").setDesc("The base URL for your OpenAI-compatible API (e.g., https://api.openai.com/v1)").addText((text) => text.setPlaceholder("https://api.openai.com/v1").setValue(this.plugin.settings.openaiApiBaseUrl).onChange(async (value) => {
       this.plugin.settings.openaiApiBaseUrl = value;
       await this.plugin.saveSettings();
@@ -9463,18 +9523,18 @@ var MindMapSettingTab = class extends import_obsidian6.PluginSettingTab {
     testButtonDesc.createDiv({ cls: "setting-item-name", text: "Test Connection" });
     testButtonDesc.createDiv({ cls: "setting-item-description", text: "Test your API configuration to ensure it works correctly" });
     const testButtonControl = testButtonContainer.createDiv({ cls: "setting-item-control" });
-    const testButton = testButtonControl.createEl("button", {
+    this.testButton = testButtonControl.createEl("button", {
       text: "Test Connection",
       cls: "mod-cta"
     });
     let resultEl = null;
-    testButton.addEventListener("click", async () => {
+    this.testButtonHandler = async () => {
       if (resultEl) {
         resultEl.remove();
         resultEl = null;
       }
-      testButton.textContent = "Testing...";
-      testButton.disabled = true;
+      this.testButton.textContent = "Testing...";
+      this.testButton.disabled = true;
       try {
         const TIMEOUT_MS = 1e4;
         const testPromise = this.plugin.aiClient.testConnection();
@@ -9501,10 +9561,11 @@ var MindMapSettingTab = class extends import_obsidian6.PluginSettingTab {
         resultEl.textContent = `\u274C Error: ${errorMessage}`;
         new import_obsidian6.Notice(this.plugin.messages.notices.connectionTestFailed);
       } finally {
-        testButton.textContent = "Test Connection";
-        testButton.disabled = false;
+        this.testButton.textContent = "Test Connection";
+        this.testButton.disabled = false;
       }
-    });
+    };
+    this.testButton.addEventListener("click", this.testButtonHandler);
     containerEl.createEl("h3", { text: "AI Prompt Configuration" });
     containerEl.createEl("p", {
       text: "Customize how the AI generates suggestions by editing the system message and prompt template.",
@@ -9527,17 +9588,21 @@ var MindMapSettingTab = class extends import_obsidian6.PluginSettingTab {
       });
     });
     const variablesRef = containerEl.createDiv({ cls: "prompt-variables-reference" });
-    variablesRef.innerHTML = `
-			<strong>Available variables:</strong>
-			<ul>
-				<li><code>{nodeText}</code> - Current node text</li>
-				<li><code>{level}</code> - Node hierarchy level (0=root)</li>
-				<li><code>{parentContext}</code> - Parent node info (if exists)</li>
-				<li><code>{siblingsContext}</code> - Sibling nodes (if exists)</li>
-				<li><code>{existingChildren}</code> - Already existing children</li>
-				<li><code>{centralTopic}</code> - Central topic (root node text)</li>
-			</ul>
-		`;
+    variablesRef.createEl("strong", { text: "Available variables:" });
+    const ul = variablesRef.createEl("ul");
+    const variables = [
+      { code: "{nodeText}", desc: "Current node text" },
+      { code: "{level}", desc: "Node hierarchy level (0=root)" },
+      { code: "{parentContext}", desc: "Parent node info (if exists)" },
+      { code: "{siblingsContext}", desc: "Sibling nodes (if exists)" },
+      { code: "{existingChildren}", desc: "Already existing children" },
+      { code: "{centralTopic}", desc: "Central topic (root node text)" }
+    ];
+    for (const v of variables) {
+      const li = ul.createEl("li");
+      li.createEl("code", { text: v.code });
+      li.appendText(` - ${v.desc}`);
+    }
     new import_obsidian6.Setting(containerEl).setName("Reset Prompts").setDesc("Reset prompt templates to default values").addButton((button) => button.setButtonText("Reset to Defaults").setWarning().onClick(async () => {
       this.plugin.settings.aiSystemMessage = DEFAULT_SETTINGS.aiSystemMessage;
       this.plugin.settings.aiPromptTemplate = DEFAULT_SETTINGS.aiPromptTemplate;

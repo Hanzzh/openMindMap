@@ -26,6 +26,7 @@ export class D3FileHandler implements MindMapFileHandler {
             const content = await this.app.vault.read(file);
             return isMindMapFile(content, file.extension);
         } catch (error) {
+            console.error('Failed to check if file is mind map:', file.path, error);
             return false;
         }
     }

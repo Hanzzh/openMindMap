@@ -60,7 +60,12 @@ export class NodeRenderer {
 				);
 
 				return transform;
-			});
+			})
+			// Accessibility: Add ARIA attributes to nodes
+			.attr("role", "button")
+			.attr("aria-label", (d) => `Mind map node: ${d.data.text}`)
+			.attr("tabindex", "0")
+			.attr("aria-level", (d) => d.depth + 1);
 
 		// 节点矩形
 		const nodeRects = nodeElements.append("rect")

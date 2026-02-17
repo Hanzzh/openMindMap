@@ -20,6 +20,13 @@
     transition: all 0.2s ease;
 }
 
+/* Accessibility: Keyboard focus indicator for nodes */
+.nodes g[role="button"]:focus .node-rect,
+.nodes g[role="button"]:focus-visible .node-rect {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 3px;
+}
+
 /* Selected node - 重要：高亮边框 */
 .selected-rect {
     stroke: var(--interactive-accent) !important;
