@@ -6174,6 +6174,13 @@ var ClipboardManager = class {
   // ========== 私有方法 ==========
   /**
    * 降级复制方案（兼容旧浏览器）
+   *
+   * Note: This uses the deprecated execCommand as a fallback for older browsers
+   * that don't support the modern Clipboard API. The modern API is tried first
+   * in copyNode(). This fallback is only used when:
+   * - navigator.clipboard is not available (older browsers)
+   * - window.isSecureContext is false (non-HTTPS contexts)
+   * - The Clipboard API call throws an error
    */
   fallbackCopy(text) {
     const textArea = document.createElement("textarea");
