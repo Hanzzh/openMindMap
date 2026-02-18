@@ -256,6 +256,7 @@ export default class MindMapPlugin extends Plugin {
 			try {
 				settingsToSave.openaiApiKey = await EncryptionUtil.encrypt(this.settings.openaiApiKey);
 			} catch (error) {
+				// If encryption fails, keep the original key
 			}
 		}
 
@@ -615,6 +616,7 @@ class MindMapView extends ItemView {
 						filePath = activeFile.path;
 					}
 				} catch (error) {
+					// Ignore errors reading file
 				}
 			}
 		}
@@ -770,6 +772,7 @@ class MindMapView extends ItemView {
 				this.renderer.render(container, this.mindMapData);
 			});
 		} catch (error) {
+			// Ignore errors during state restoration
 		}
 	}
 

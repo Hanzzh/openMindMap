@@ -4756,7 +4756,6 @@ var TextRenderer = class _TextRenderer {
         if (parentContext && parentContext instanceof Object) {
           _TextRenderer.attachTextEditHandlersToNode(textDivNode, d, onEditCallback, self);
         }
-      } else {
       }
     });
   }
@@ -6710,7 +6709,6 @@ var RendererCoordinator = class {
   saveNodeText() {
     if (this.nodeEditor.isEditing()) {
       this.nodeEditor.saveText();
-    } else {
     }
   }
   /**

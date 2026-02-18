@@ -103,6 +103,7 @@ export class AIClient {
 						errorMessage = errorData.error.message;
 					}
 				} catch (e) {
+					// Ignore JSON parse errors when extracting error details
 				}
 
 
@@ -165,6 +166,7 @@ export class AIClient {
 					errorMessage = errorData.error.message;
 				}
 			} catch (e) {
+				// Ignore JSON parse errors when extracting error details
 			}
 			throw new Error(errorMessage);
 		}
@@ -370,12 +372,15 @@ export class AIClient {
 		// Log finish_reason for debugging truncation issues
 		const finishReason = data.choices[0].finish_reason;
 		if (finishReason) {
+			// Can be logged for debugging: 'length', 'stop', 'content_filter', etc.
 			if (finishReason === 'length') {
+				// Response was truncated due to token limit
 			}
 		}
 
 		// Log token usage if available
 		if (data.usage) {
+			// Token usage data available: data.usage.prompt_tokens, completion_tokens, total_tokens
 		}
 
 		// Check if first choice has message

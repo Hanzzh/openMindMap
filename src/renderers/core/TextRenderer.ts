@@ -112,7 +112,7 @@ export class TextRenderer {
 						cancelEditMode?: () => void;
 					});
 				}
-			} else {
+				// else: No parent context, skip event handler attachment
 			}
 		});
 	}

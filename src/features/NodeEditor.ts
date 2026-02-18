@@ -178,6 +178,7 @@ export class NodeEditor {
 				const nodeElement = d3.select(editElement.closest("g"));
 				nodeElement.classed("node-editing", false);
 			} catch (error) {
+				// Ignore errors when cleaning up DOM elements
 			}
 		}
 
@@ -384,6 +385,7 @@ export class NodeEditor {
 			try {
 				this.exitEditMode();
 			} catch (recoveryError) {
+				// Ignore errors during recovery attempt
 			}
 		}
 	}

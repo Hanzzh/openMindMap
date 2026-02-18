@@ -122,6 +122,7 @@ export class RendererCoordinator implements MindMapRenderer {
 
 		// 添加警告：如果 messages 为空，提示缺少国际化支持
 		if (!messages) {
+			// Messages will use default English fallback
 		}
 
 		// 初始化 UndoManager
@@ -385,8 +386,8 @@ export class RendererCoordinator implements MindMapRenderer {
 	public saveNodeText(): void {
 		if (this.nodeEditor.isEditing()) {
 			this.nodeEditor.saveText();
-		} else {
 		}
+		// else: Not in editing mode, nothing to save
 	}
 
 	/**

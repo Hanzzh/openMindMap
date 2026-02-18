@@ -115,6 +115,7 @@ export class D3InteractionHandler implements MindMapInteractionHandler {
                 this.enableNodeEditing(node, editElement);
             }
         } catch (error) {
+            // Ignore errors during double-click handling
         }
     }
 
@@ -204,6 +205,7 @@ export class D3InteractionHandler implements MindMapInteractionHandler {
                 // This is safe because editingState.isEditing will be false,
                 // so the handlers won't execute any editing logic
             } catch (error) {
+                // Ignore errors when cleaning up edit element
             }
         }
 
