@@ -362,7 +362,10 @@ export class RendererCoordinator implements MindMapRenderer {
 		// View state is automatically saved internally during render()
 		// This method is kept for backward compatibility
 		if (this.currentSvg && this.currentZoom) {
-			this.currentZoomTransform = d3.zoomTransform(this.currentSvg.node()!);
+			const svgNode = this.currentSvg.node();
+			if (svgNode) {
+				this.currentZoomTransform = d3.zoomTransform(svgNode);
+			}
 		}
 	}
 
@@ -940,7 +943,11 @@ export class RendererCoordinator implements MindMapRenderer {
 	private restoreViewState(): void {
 		if (this.currentZoomTransform && this.currentSvg && this.currentZoom) {
 			// 检查当前变换是否与保存的变换不同，避免重复应用
-			const currentTransform = d3.zoomTransform(this.currentSvg.node()!);
+			const svgNode = this.currentSvg.node();
+			if (!svgNode) {
+				return;
+			}
+			const currentTransform = d3.zoomTransform(svgNode);
 
 			if (currentTransform.toString() !== this.currentZoomTransform.toString()) {
 				// 应用之前保存的缩放变换

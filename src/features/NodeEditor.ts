@@ -328,7 +328,7 @@ export class NodeEditor {
 	 * 显示编辑提示
 	 */
 	private showEditingHint(): void {
-		let hintElement = document.querySelector('.editing-hint') as HTMLElement;
+		let hintElement = document.querySelector('.editing-hint');
 		if (!hintElement) {
 			hintElement = document.createElement('div');
 			hintElement.className = 'editing-hint';
@@ -347,7 +347,7 @@ export class NodeEditor {
 	 * 隐藏编辑提示
 	 */
 	private hideEditingHint(): void {
-		const hintElement = document.querySelector('.editing-hint') as HTMLElement;
+		const hintElement = document.querySelector('.editing-hint');
 		if (hintElement) {
 			hintElement.classList.remove('show');
 		}

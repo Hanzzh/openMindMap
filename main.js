@@ -3585,7 +3585,10 @@ var TextMeasurer = class {
   measureTextAccurately(text, fontSize, fontWeight = "normal") {
     const cacheKey = `${text}-${fontSize}-${fontWeight}`;
     if (this.textMeasurementCache.has(cacheKey)) {
-      return this.textMeasurementCache.get(cacheKey);
+      const cached = this.textMeasurementCache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
     this.initializeTextMeasurementElement();
     if (this.textMeasurementElement) {
@@ -3688,7 +3691,10 @@ var TextMeasurer = class {
   getNodeDimensions(depth, text) {
     const cacheKey = `${depth}-${text}-${text.length}`;
     if (this.nodeDimensionsCache.has(cacheKey)) {
-      return this.nodeDimensionsCache.get(cacheKey);
+      const cached = this.nodeDimensionsCache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
     const cleanedText = cleanTextContent(text);
     let fontSize;
@@ -4102,12 +4108,15 @@ var LayoutCalculator = class {
   groupNodesByParent(root2) {
     const groups = /* @__PURE__ */ new Map();
     root2.each((node) => {
-      if (node.depth > 0) {
+      if (node.depth > 0 && node.parent) {
         const parentId = node.parent.data.text;
         if (!groups.has(parentId)) {
           groups.set(parentId, []);
         }
-        groups.get(parentId).push(node);
+        const group = groups.get(parentId);
+        if (group) {
+          group.push(node);
+        }
       }
     });
     return groups;
@@ -4121,6 +4130,9 @@ var LayoutCalculator = class {
     for (const [parentText, childNodes] of nodeGroups) {
       if (childNodes.length === 0) continue;
       const firstChild = childNodes[0];
+      if (!firstChild.parent) {
+        continue;
+      }
       const parentNode = firstChild.parent;
       const parentDimensions = nodeDimensionsCallback(parentNode.depth, parentNode.data.text);
       const parentRightEdge = parentNode.y + parentDimensions.width;
@@ -4154,7 +4166,10 @@ var LayoutCalculator = class {
           if (!nextLevelGroups.has(childText)) {
             nextLevelGroups.set(childText, []);
           }
-          nextLevelGroups.get(childText).push(...child.children);
+          const group = nextLevelGroups.get(childText);
+          if (group) {
+            group.push(...child.children);
+          }
         }
       }
     }
@@ -4990,12 +5005,16 @@ var MouseInteraction = class {
   attachCanvasClickHandler(svg) {
     const svgNode2 = svg.node();
     svgNode2.addEventListener("click", (event) => {
-      var _a, _b;
+      var _a, _b, _c, _d;
       const target = event.target;
       const isNodeElement = this.isNodeElement(target);
       if (!isNodeElement) {
         this.clearSelection();
         (_b = (_a = this.callbacks).onCanvasClick) == null ? void 0 : _b.call(_a);
+      }
+      if (!isNodeElement) {
+        this.clearSelection();
+        (_d = (_c = this.callbacks).onCanvasClick) == null ? void 0 : _d.call(_c);
       }
     }, true);
   }
@@ -6689,7 +6708,10 @@ var RendererCoordinator = class {
    */
   saveViewState() {
     if (this.currentSvg && this.currentZoom) {
-      this.currentZoomTransform = transform(this.currentSvg.node());
+      const svgNode2 = this.currentSvg.node();
+      if (svgNode2) {
+        this.currentZoomTransform = transform(svgNode2);
+      }
     }
   }
   /**
@@ -7059,7 +7081,11 @@ var RendererCoordinator = class {
    */
   restoreViewState() {
     if (this.currentZoomTransform && this.currentSvg && this.currentZoom) {
-      const currentTransform = transform(this.currentSvg.node());
+      const svgNode2 = this.currentSvg.node();
+      if (!svgNode2) {
+        return;
+      }
+      const currentTransform = transform(svgNode2);
       if (currentTransform.toString() !== this.currentZoomTransform.toString()) {
         this.currentSvg.call(this.currentZoom.transform, this.currentZoomTransform);
         if (this.currentContent) {
@@ -9368,8 +9394,11 @@ var MindMapView = class _MindMapView extends import_obsidian6.ItemView {
       clearTimeout(this.updateTimer);
     }
     this.updateTimer = setTimeout(() => {
+      var _a;
       this.refreshMindMapLayout();
-      void this.mindMapService.saveToMarkdownFile(this.filePath, this.mindMapData.rootNode);
+      if (this.filePath && ((_a = this.mindMapData) == null ? void 0 : _a.rootNode)) {
+        void this.mindMapService.saveToMarkdownFile(this.filePath, this.mindMapData.rootNode);
+      }
       this.updateTimer = null;
     }, 300);
   }
@@ -9542,7 +9571,6 @@ var MindMapSettingTab = class extends import_obsidian6.PluginSettingTab {
     this.testButtonHandler = async () => {
       if (resultEl) {
         resultEl.remove();
-        resultEl = null;
       }
       this.testButton.textContent = "Testing...";
       this.testButton.disabled = true;
@@ -9572,8 +9600,10 @@ var MindMapSettingTab = class extends import_obsidian6.PluginSettingTab {
         resultEl.textContent = `\u274C Error: ${errorMessage}`;
         new import_obsidian6.Notice(this.plugin.messages.notices.connectionTestFailed);
       } finally {
-        this.testButton.textContent = "Test Connection";
-        this.testButton.disabled = false;
+        if (this.testButton) {
+          this.testButton.textContent = "Test Connection";
+          this.testButton.disabled = false;
+        }
       }
     };
     this.testButton.addEventListener("click", this.testButtonHandler);

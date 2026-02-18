@@ -550,12 +550,15 @@ export class LayoutCalculator {
 
         // 遍历所有节点，按父节点分组
         root.each(node => {
-            if (node.depth > 0) {
-                const parentId = node.parent!.data.text; // 使用父节点文本作为唯一标识
+            if (node.depth > 0 && node.parent) {
+                const parentId = node.parent.data.text; // 使用父节点文本作为唯一标识
                 if (!groups.has(parentId)) {
                     groups.set(parentId, []);
                 }
-                groups.get(parentId)!.push(node);
+                const group = groups.get(parentId);
+                if (group) {
+                    group.push(node);
+                }
             }
         });
 
@@ -577,7 +580,10 @@ export class LayoutCalculator {
 
             // 获取第一个子节点来获取父节点引用
             const firstChild = childNodes[0];
-            const parentNode = firstChild.parent!;
+            if (!firstChild.parent) {
+                continue;
+            }
+            const parentNode = firstChild.parent;
 
             // 获取父节点尺寸和位置
             const parentDimensions = nodeDimensionsCallback(parentNode.depth, parentNode.data.text);
@@ -628,7 +634,10 @@ export class LayoutCalculator {
                     if (!nextLevelGroups.has(childText)) {
                         nextLevelGroups.set(childText, []);
                     }
-                    nextLevelGroups.get(childText)!.push(...child.children);
+                    const group = nextLevelGroups.get(childText);
+                    if (group) {
+                        group.push(...child.children);
+                    }
                 }
             }
         }

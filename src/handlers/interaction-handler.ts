@@ -108,7 +108,7 @@ export class D3InteractionHandler implements MindMapInteractionHandler {
             if (!editElement) {
                 // Fallback: try to find from child elements
                 const container = event.currentTarget as HTMLElement;
-                editElement = container.querySelector('.node-unified-text') as HTMLDivElement;
+                editElement = container.querySelector('.node-unified-text');
             }
 
             if (editElement) {
@@ -344,7 +344,7 @@ export class D3InteractionHandler implements MindMapInteractionHandler {
      * Show editing hint
      */
     private showEditingHint(): void {
-        let hintElement = document.querySelector('.editing-hint') as HTMLElement;
+        let hintElement = document.querySelector('.editing-hint');
         if (!hintElement) {
             hintElement = document.createElement('div');
             hintElement.className = 'editing-hint';
@@ -362,7 +362,7 @@ export class D3InteractionHandler implements MindMapInteractionHandler {
      * Hide editing hint
      */
     private hideEditingHint(): void {
-        const hintElement = document.querySelector('.editing-hint') as HTMLElement;
+        const hintElement = document.querySelector('.editing-hint');
         if (hintElement) {
             hintElement.classList.remove('show');
         }

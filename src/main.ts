@@ -714,7 +714,9 @@ class MindMapView extends ItemView {
 			this.refreshMindMapLayout();
 
 			// 保存文件
-			void this.mindMapService.saveToMarkdownFile(this.filePath!, this.mindMapData!.rootNode!);
+			if (this.filePath && this.mindMapData?.rootNode) {
+				void this.mindMapService.saveToMarkdownFile(this.filePath, this.mindMapData.rootNode);
+			}
 
 			// 清空定时器引用
 			this.updateTimer = null;
@@ -732,7 +734,7 @@ class MindMapView extends ItemView {
 			this.refreshMindMapLayout();
 
 			// 异步保存到文件
-			void this.mindMapService.saveToMarkdownFile(this.filePath!, rootNode);
+			void this.mindMapService.saveToMarkdownFile(this.filePath, rootNode);
 		}
 	}
 
@@ -1009,7 +1011,6 @@ class MindMapSettingTab extends PluginSettingTab {
 			// Remove previous result if exists
 			if (resultEl) {
 				resultEl.remove();
-				resultEl = null;
 			}
 
 			// Update button state
@@ -1054,8 +1055,10 @@ class MindMapSettingTab extends PluginSettingTab {
 				new Notice(this.plugin.messages.notices.connectionTestFailed);
 			} finally {
 				// Restore button state
-				this.testButton!.textContent = 'Test Connection';
-				this.testButton!.disabled = false;
+				if (this.testButton) {
+					this.testButton.textContent = 'Test Connection';
+					this.testButton.disabled = false;
+				}
 			}
 		};
 

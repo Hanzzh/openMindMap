@@ -66,7 +66,10 @@ export class TextMeasurer {
 		const cacheKey = `${text}-${fontSize}-${fontWeight}`;
 
 		if (this.textMeasurementCache.has(cacheKey)) {
-			return this.textMeasurementCache.get(cacheKey)!;
+			const cached = this.textMeasurementCache.get(cacheKey);
+			if (cached) {
+				return cached;
+			}
 		}
 
 		this.initializeTextMeasurementElement();
@@ -200,7 +203,10 @@ export class TextMeasurer {
 
 		// 检查缓存
 		if (this.nodeDimensionsCache.has(cacheKey)) {
-			return this.nodeDimensionsCache.get(cacheKey)!;
+			const cached = this.nodeDimensionsCache.get(cacheKey);
+			if (cached) {
+				return cached;
+			}
 		}
 		const cleanedText = cleanTextContent(text);
 

@@ -177,8 +177,13 @@ export class MouseInteraction {
 		const svgNode = svg.node() as SVGSVGElement;
 
 		svgNode.addEventListener("click", (event: MouseEvent) => {
-			const target = event.target as SVGElement;
-			const isNodeElement = this.isNodeElement(target);
+			const target = event.target;
+			const isNodeElement = this.isNodeElement(target as SVGElement);
+
+			if (!isNodeElement) {
+				this.clearSelection();
+				this.callbacks.onCanvasClick?.();
+			}
 
 			if (!isNodeElement) {
 				this.clearSelection();
