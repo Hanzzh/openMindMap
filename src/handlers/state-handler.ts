@@ -36,7 +36,7 @@ export class MindMapStateHandlerImpl implements MindMapStateHandler {
     /**
      * Set view state
      */
-    async setViewState(state: ViewState): Promise<void> {
+    setViewState(state: ViewState): Promise<void> {
         this.filePath = state.file || null;
         this.viewState = {
             file: this.filePath,
@@ -44,6 +44,7 @@ export class MindMapStateHandlerImpl implements MindMapStateHandler {
             scrollPosition: state.scrollPosition
         };
         this.stateLoaded = true;
+        return Promise.resolve();
     }
 
     /**
