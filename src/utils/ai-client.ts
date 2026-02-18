@@ -3,6 +3,7 @@
  * Handles communication with OpenAI or compatible services
  */
 
+import { requestUrl } from 'obsidian';
 import { AIPrompts, NodeContext } from './ai-prompts';
 
 // Re-export NodeContext for external use
@@ -57,7 +58,8 @@ export class AIClient {
 			const apiUrl = `${this.config.apiBaseUrl}/chat/completions`;
 
 
-			const response = await fetch(apiUrl, {
+			const response = await requestUrl({
+				url: apiUrl,
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -74,12 +76,12 @@ export class AIClient {
 			});
 
 
-			if (response.ok) {
-				const data = await response.json();
+			if (response.status >= 200 && response.status < 300) {
+				const data = response.json;
 
 				// Validate response structure
 				try {
-					const content = this.validateAPIResponseStructure(data, 'testConnection');
+					this.validateAPIResponseStructure(data, 'testConnection');
 
 					return {
 						success: true,
@@ -95,10 +97,10 @@ export class AIClient {
 				}
 			} else {
 				// Handle error response
-				let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+				let errorMessage = `HTTP ${response.status}`;
 
 				try {
-					const errorData = await response.json();
+					const errorData = response.json;
 					if (errorData.error?.message) {
 						errorMessage = errorData.error.message;
 					}
@@ -142,7 +144,8 @@ export class AIClient {
 
 		messages.push({ role: 'user', content: userMessage });
 
-		const response = await fetch(apiUrl, {
+		const response = await requestUrl({
+			url: apiUrl,
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -158,10 +161,10 @@ export class AIClient {
 
 		// Log HTTP status and headers
 
-		if (!response.ok) {
-			let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+		if (response.status < 200 || response.status >= 300) {
+			let errorMessage = `HTTP ${response.status}`;
 			try {
-				const errorData = await response.json();
+				const errorData = response.json;
 				if (errorData.error?.message) {
 					errorMessage = errorData.error.message;
 				}
@@ -171,7 +174,7 @@ export class AIClient {
 			throw new Error(errorMessage);
 		}
 
-		const data = await response.json();
+		const data = response.json;
 
 		// Validate response structure
 		const content = this.validateAPIResponseStructure(data, 'chat');

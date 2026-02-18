@@ -45,9 +45,9 @@ export interface RenderCallbacks {
 	onAddChildNode?: (node: d3.HierarchyNode<MindMapNode>) => void;
 	onAddSiblingNode?: (node: d3.HierarchyNode<MindMapNode>) => void;
 	onDeleteNode?: (node: d3.HierarchyNode<MindMapNode>) => void;
-	onCopyNode?: (node: d3.HierarchyNode<MindMapNode>) => void;
-	onCutNode?: (node: d3.HierarchyNode<MindMapNode>) => void;
-	onPasteToNode?: (node: d3.HierarchyNode<MindMapNode>) => void;
+	onCopyNode?: (node: d3.HierarchyNode<MindMapNode>) => Promise<void>;
+	onCutNode?: (node: d3.HierarchyNode<MindMapNode>) => Promise<void>;
+	onPasteToNode?: (node: d3.HierarchyNode<MindMapNode>) => Promise<void>;
 	onExitEditMode?: () => void;
 	onUndo?: () => void;
 	onRedo?: () => void;
@@ -365,21 +365,21 @@ export class InteractionManager {
 	 * 处理复制快捷键
 	 */
 	private async handleCopyShortcut(node: d3.HierarchyNode<MindMapNode>): Promise<void> {
-		this.renderCallbacks.onCopyNode?.(node);
+		await this.renderCallbacks.onCopyNode?.(node);
 	}
 
 	/**
 	 * 处理剪切快捷键
 	 */
 	private async handleCutShortcut(node: d3.HierarchyNode<MindMapNode>): Promise<void> {
-		this.renderCallbacks.onCutNode?.(node);
+		await this.renderCallbacks.onCutNode?.(node);
 	}
 
 	/**
 	 * 处理粘贴快捷键
 	 */
 	private async handlePasteShortcut(node: d3.HierarchyNode<MindMapNode>): Promise<void> {
-		this.renderCallbacks.onPasteToNode?.(node);
+		await this.renderCallbacks.onPasteToNode?.(node);
 	}
 
 	/**

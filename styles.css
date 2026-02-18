@@ -662,3 +662,20 @@
 .ai-suggestions-list::-webkit-scrollbar-thumb:hover {
     background: var(--background-modifier-border-hover);
 }
+
+/* ------------------------------------------------------------------------
+   Text Measurement Element (for internal text size calculation)
+   ------------------------------------------------------------------------ */
+.mindmap-text-measurer {
+    position: absolute;
+    visibility: hidden;
+    height: auto;
+    width: auto;
+    white-space: pre;
+    font-family: var(--font-text);
+    font-size: 14px;
+    font-weight: normal;
+    line-height: 1.2;
+    padding: 0;
+    margin: 0;
+}

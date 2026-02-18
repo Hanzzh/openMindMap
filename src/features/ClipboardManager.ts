@@ -31,6 +31,14 @@ import { MindMapMessages } from '../i18n';
 import { VALIDATION_CONSTANTS } from '../constants/mindmap-constants';
 
 /**
+ * Helper function to set multiple CSS properties at once
+ * This provides a cleaner alternative to direct style manipulation
+ */
+function setCssProps(element: HTMLElement, props: Record<string, string>): void {
+	Object.assign(element.style, props);
+}
+
+/**
  * Clipboard Manager 回调接口
  */
 export interface ClipboardManagerCallbacks {
@@ -75,7 +83,7 @@ export class ClipboardManager {
 					await navigator.clipboard.writeText(markdown);
 					this.showSuccessNotice(this.messages.notices.nodeTextCopied);
 					return true;
-				} catch (err) {
+				} catch {
 					// 降级方案：使用传统方法
 					return this.fallbackCopy(markdown);
 				}
@@ -147,7 +155,7 @@ export class ClipboardManager {
 				// 普通文本，创建单个子节点
 				return this.pasteText(node, clipboardText);
 			}
-		} catch (error) {
+		} catch {
 			// 静默失败：不显示任何错误提示
 			return false;
 		}
@@ -176,19 +184,21 @@ export class ClipboardManager {
 		const textArea = document.createElement("textarea");
 		textArea.value = text;
 
-		// Set individual style properties for better maintainability
-		textArea.style.position = 'fixed';
-		textArea.style.top = '0';
-		textArea.style.left = '0';
-		textArea.style.width = '2em';
-		textArea.style.height = '2em';
-		textArea.style.padding = '0';
-		textArea.style.border = 'none';
-		textArea.style.outline = 'none';
-		textArea.style.boxShadow = 'none';
-		textArea.style.background = 'transparent';
-		textArea.style.opacity = '0';
-		textArea.style.pointerEvents = 'none';
+		// Set styles using helper function for better maintainability
+		setCssProps(textArea, {
+			position: 'fixed',
+			top: '0',
+			left: '0',
+			width: '2em',
+			height: '2em',
+			padding: '0',
+			border: 'none',
+			outline: 'none',
+			boxShadow: 'none',
+			background: 'transparent',
+			opacity: '0',
+			pointerEvents: 'none'
+		});
 
 		document.body.appendChild(textArea);
 		textArea.focus();

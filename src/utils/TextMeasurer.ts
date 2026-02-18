@@ -3,6 +3,14 @@ import { getFontSizeByDepth } from '../constants/mindmap-constants';
 import { cleanTextContent } from './mindmap-utils';
 
 /**
+ * Helper function to set multiple CSS properties at once
+ * This provides a cleaner alternative to direct style manipulation
+ */
+function setCssProps(element: HTMLElement, props: Record<string, string>): void {
+	Object.assign(element.style, props);
+}
+
+/**
  * 节点尺寸配置接口
  */
 export interface NodeDimensions {
@@ -75,8 +83,10 @@ export class TextMeasurer {
 		this.initializeTextMeasurementElement();
 
 		if (this.textMeasurementElement) {
-			this.textMeasurementElement.style.fontSize = `${fontSize}px`;
-			this.textMeasurementElement.style.fontWeight = fontWeight;
+			setCssProps(this.textMeasurementElement, {
+				fontSize: `${fontSize}px`,
+				fontWeight: fontWeight
+			});
 			this.textMeasurementElement.textContent = text;
 
 			const rect = this.textMeasurementElement.getBoundingClientRect();
@@ -306,17 +316,7 @@ export class TextMeasurer {
 	private initializeTextMeasurementElement(): void {
 		if (!this.textMeasurementElement) {
 			this.textMeasurementElement = document.createElement('div');
-			this.textMeasurementElement.style.position = 'absolute';
-			this.textMeasurementElement.style.visibility = 'hidden';
-			this.textMeasurementElement.style.height = 'auto';
-			this.textMeasurementElement.style.width = 'auto';
-			this.textMeasurementElement.style.whiteSpace = 'pre';
-			this.textMeasurementElement.style.fontFamily = 'var(--font-text)';
-			this.textMeasurementElement.style.fontSize = STYLE_CONSTANTS.TEXT_MEASUREMENT_FONT_SIZE;
-			this.textMeasurementElement.style.fontWeight = 'normal';
-			this.textMeasurementElement.style.lineHeight = '1.2';
-			this.textMeasurementElement.style.padding = '0';
-			this.textMeasurementElement.style.margin = '0';
+			this.textMeasurementElement.addClass('mindmap-text-measurer');
 			document.body.appendChild(this.textMeasurementElement);
 		}
 	}

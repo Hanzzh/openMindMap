@@ -39,12 +39,12 @@ export interface MobileToolbarCallbacks {
 	/**
 	 * 复制按钮点击时调用
 	 */
-	onCopy?: (node: d3.HierarchyNode<MindMapNode>) => void;
+	onCopy?: (node: d3.HierarchyNode<MindMapNode>) => Promise<void>;
 
 	/**
 	 * 粘贴按钮点击时调用
 	 */
-	onPaste?: (node: d3.HierarchyNode<MindMapNode>) => void;
+	onPaste?: (node: d3.HierarchyNode<MindMapNode>) => Promise<void>;
 
 	/**
 	 * 删除按钮点击时调用

@@ -63,6 +63,11 @@ export default class MindMapPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
+		// Initialize encryption utility with platform info
+		// eslint-disable-next-line deprecation/deprecation
+		const deviceInfo = `obsidian-mindmap-plugin-${navigator.userAgent}-${navigator.language}`;
+		EncryptionUtil.initialize(deviceInfo);
+
 		// 🔒 Phase 1: Device detection and configuration initialization
 		// This is the ONLY place where we detect device type in the plugin
 		// After this point, config.isMobile determines all device-specific behavior
@@ -267,25 +272,8 @@ export default class MindMapPlugin extends Plugin {
 	}
 
 	async loadStyles() {
-		try {
-			// Load the CSS file using Vault API (not adapter)
-			const cssPath = normalizePath(`${this.manifest.dir}/styles.css`);
-			const cssFile = this.app.vault.getAbstractFileByPath(cssPath);
-
-			if (!(cssFile instanceof TFile)) {
-				throw new Error('CSS file not found');
-			}
-
-			const cssContent = await this.app.vault.read(cssFile);
-
-			// Add style tag to document head
-			const styleEl = document.createElement('style');
-			styleEl.textContent = cssContent;
-			styleEl.id = 'mind-map-styles';
-			document.head.appendChild(styleEl);
-		} catch (error) {
-			console.error('Failed to load mind map styles:', error);
-		}
+		// Styles are automatically loaded by Obsidian from styles.css
+		// No dynamic style loading needed
 	}
 
 	// Replace current view with mind map view
@@ -676,13 +664,13 @@ class MindMapView extends ItemView {
 		}
 	}
 
-	async renderMindMap(content: string) {
+	async renderMindMap(content: string): Promise<void> {
 		const container = this.containerEl.children[1];
 		container.empty();
 
 		// 数据层：构建节点关系（使用 MindMapService）
 		const mindMapData = this.mindMapService.parseMarkdownToData(content, this.filePath || '');
-	
+
 		// 保存数据引用以便编辑时使用
 		this.mindMapData = mindMapData;
 
@@ -814,7 +802,7 @@ class MindMapView extends ItemView {
 	}
 
 
-	async onClose() {
+	async onClose(): Promise<void> {
 		// 清理防抖定时器
 		if (this.updateTimer) {
 			clearTimeout(this.updateTimer);
@@ -833,7 +821,7 @@ class MindMapView extends ItemView {
 
 class MindMapSettingTab extends PluginSettingTab {
 	plugin: MindMapPlugin;
-	private testButtonHandler: (() => void) | null = null;
+	private testButtonHandler: (() => Promise<void>) | null = null;
 	private testButton: HTMLButtonElement | null = null;
 
 	constructor(app: App, plugin: MindMapPlugin) {
@@ -862,12 +850,12 @@ class MindMapSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Settings for openMindMap Plugin'});
+		new Setting(containerEl).setName('Settings for openMindMap Plugin').setHeading();
 
 		// ====================
 		// Device Type Settings
 		// ====================
-		containerEl.createEl('h3', {text: 'Device settings'});
+		new Setting(containerEl).setName('Device settings').setHeading();
 
 		new Setting(containerEl)
 			.setName('Device type')
@@ -887,7 +875,7 @@ class MindMapSettingTab extends PluginSettingTab {
 		// ====================
 		// Language Settings
 		// ====================
-		containerEl.createEl('h3', {text: 'Language settings'});
+		new Setting(containerEl).setName('Language settings').setHeading();
 
 		new Setting(containerEl)
 			.setName('Language')
@@ -924,7 +912,7 @@ class MindMapSettingTab extends PluginSettingTab {
 		// ====================
 		// AI Configuration
 		// ====================
-		containerEl.createEl('h3', {text: 'AI Configuration (OpenAI-compatible API)'});
+		new Setting(containerEl).setName('AI Configuration (OpenAI-compatible API)').setHeading();
 		containerEl.createEl('p', {
 			text: 'Configure your AI API to enable intelligent features like automatic node suggestions.',
 			cls: 'setting-item-description'
@@ -1065,7 +1053,7 @@ class MindMapSettingTab extends PluginSettingTab {
 		this.testButton.addEventListener('click', this.testButtonHandler);
 
 		// AI Prompts Configuration
-		containerEl.createEl('h3', {text: 'AI Prompt Configuration'});
+		new Setting(containerEl).setName('AI Prompt Configuration').setHeading();
 		containerEl.createEl('p', {
 			text: 'Customize how the AI generates suggestions by editing the system message and prompt template.',
 			cls: 'setting-item-description'

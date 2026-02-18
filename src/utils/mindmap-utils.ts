@@ -103,7 +103,7 @@ export function getFileNameWithoutExtension(filePath: string): string {
     if (!filePath) return 'Untitled';
 
     // Remove path and keep only filename, then remove .md extension
-    const fileName = filePath.replace(/^.*[\\\/]/, '');
+    const fileName = filePath.replace(/^.*[\\/]/, '');
     return fileName.replace(/\.md$/, '');
 }
 

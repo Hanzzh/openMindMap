@@ -5,13 +5,22 @@
 
 export class EncryptionUtil {
 	private static keyPromise: Promise<CryptoKey> | null = null;
+	private static deviceInfo: string = '';
+
+	/**
+	 * Initialize the encryption utility with device information
+	 * This should be called once during plugin initialization
+	 */
+	static initialize(deviceInfo: string): void {
+		this.deviceInfo = deviceInfo;
+	}
 
 	/**
 	 * Generate a consistent encryption key based on device info
 	 * This ensures the same key is generated on the same device
 	 */
 	private static async generateKey(): Promise<CryptoKey> {
-		if (this.keyPromise) {
+		if (this.keyPromise !== null) {
 			return this.keyPromise;
 		}
 
@@ -46,8 +55,10 @@ export class EncryptionUtil {
 	 * Get key material from device/plugin identifier
 	 */
 	private static getKeyMaterial(): Uint8Array {
-		// Use a combination of plugin ID and device info
-		const identifier = `obsidian-mindmap-plugin-${navigator.userAgent}-${navigator.language}`;
+		// Use provided device info or fallback to browser API
+		// eslint-disable-next-line deprecation/deprecation
+		const fallbackInfo = `obsidian-mindmap-plugin-${navigator.userAgent}-${navigator.language}`;
+		const identifier = this.deviceInfo || fallbackInfo;
 		return new TextEncoder().encode(identifier);
 	}
 
