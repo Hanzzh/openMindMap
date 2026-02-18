@@ -1,4 +1,4 @@
-import { App, MarkdownView, ItemView, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, TFile, FileView, Notice, Platform, TFolder, TAbstractFile } from 'obsidian';
+import { App, MarkdownView, ItemView, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, TFile, FileView, Notice, Platform, TFolder, TAbstractFile, normalizePath } from 'obsidian';
 import { RendererManager } from './renderers/renderer-manager';
 import { RendererCoordinator } from './renderers/renderer-coordinator';
 import { MindMapService } from './services/mindmap-service';
@@ -93,50 +93,40 @@ export default class MindMapPlugin extends Plugin {
 		// Load custom styles
 		await this.loadStyles();
 
-		// This creates an icon in the left ribbon.
+		// Add ribbon icon
 		const ribbonIconEl = this.addRibbonIcon('brain', 'openMindMap', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
 			this.activateView();
 		});
-
-		// Perform additional things with the ribbon
 		ribbonIconEl.addClass('mind-map-ribbon-class');
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('openMindMap Ready');
-
-		// This adds a simple command that can be triggered anywhere
+		// Command: Open mind map view
 		this.addCommand({
-			id: 'open-mind-map',
+			id: 'open-view',
 			name: 'Open mind map view',
 			callback: () => {
 				this.activateView();
 			}
 		});
 
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
+		// Command: Open current file as mind map
 		this.addCommand({
-			id: 'open-mind-map-current',
+			id: 'open-current',
 			name: 'Open current file as mind map',
 			checkCallback: (checking: boolean) => {
-				// Conditions to check
 				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
 					if (!checking) {
 						this.activateView();
 					}
-					// This command will only show up in Command Palette when the check function returns true
 					return true;
 				}
+				return false;
 			}
 		});
 
-		// Undo command
+		// Command: Undo
 		this.addCommand({
-			id: 'mindmap-undo',
+			id: 'undo',
 			name: 'Undo',
 			checkCallback: (checking: boolean) => {
 				const activeView = this.app.workspace.getActiveViewOfType(MindMapView);
@@ -150,9 +140,9 @@ export default class MindMapPlugin extends Plugin {
 			}
 		});
 
-		// Redo command
+		// Command: Redo
 		this.addCommand({
-			id: 'mindmap-redo',
+			id: 'redo',
 			name: 'Redo',
 			checkCallback: (checking: boolean) => {
 				const activeView = this.app.workspace.getActiveViewOfType(MindMapView);
@@ -166,7 +156,7 @@ export default class MindMapPlugin extends Plugin {
 			}
 		});
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
+		// Register settings tab
 		this.addSettingTab(new MindMapSettingTab(this.app, this));
 
 		// Register the custom view (pass config to view)
@@ -277,8 +267,16 @@ export default class MindMapPlugin extends Plugin {
 
 	async loadStyles() {
 		try {
-			// Load the CSS file
-			const cssContent = await this.app.vault.adapter.read(`${this.manifest.dir}/styles.css`);
+			// Load the CSS file using Vault API (not adapter)
+			const cssPath = normalizePath(`${this.manifest.dir}/styles.css`);
+			const cssFile = this.app.vault.getAbstractFileByPath(cssPath);
+
+			if (!(cssFile instanceof TFile)) {
+				throw new Error('CSS file not found');
+			}
+
+			const cssContent = await this.app.vault.read(cssFile);
+
 			// Add style tag to document head
 			const styleEl = document.createElement('style');
 			styleEl.textContent = cssContent;
@@ -291,24 +289,29 @@ export default class MindMapPlugin extends Plugin {
 
 	// Replace current view with mind map view
 	async replaceWithMindMapView(file: TFile) {
-		const activeLeaf = this.app.workspace.getActiveViewOfType(FileView);
-		if (activeLeaf && activeLeaf.leaf) {
-			await activeLeaf.leaf.setViewState({
+		// Get the active view and its leaf
+		const activeView = this.app.workspace.getActiveViewOfType(FileView);
+
+		if (activeView && activeView.leaf) {
+			// Use the leaf from the active view
+			await activeView.leaf.setViewState({
 				type: MIND_MAP_VIEW_TYPE,
 				active: true,
 				state: { file: file.path }
 			});
 		} else {
-			// Alternative: get the current leaf directly
-			const leaf = this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf ||
-						this.app.workspace.activeLeaf;
+			// Fallback: try to get a leaf through the active editor
+			const activeEditor = this.app.workspace.activeEditor;
+			// Use type assertion to access leaf property
+			const editorView = activeEditor as any;
+			const leaf = editorView?.leaf || this.app.workspace.getMostRecentLeaf();
+
 			if (leaf) {
 				await leaf.setViewState({
 					type: MIND_MAP_VIEW_TYPE,
 					active: true,
 					state: { file: file.path }
 				});
-			} else {
 			}
 		}
 	}
@@ -358,13 +361,17 @@ export default class MindMapPlugin extends Plugin {
 			let fileName = 'Untitled mindmap.md';
 			let counter = 1;
 
-			// Construct the full file path for checking and creation
-			let fullPath = targetFolderPath ? `${targetFolderPath}/${fileName}` : fileName;
+			// Construct the full file path (normalized)
+			let fullPath = normalizePath(
+				targetFolderPath ? `${targetFolderPath}/${fileName}` : fileName
+			);
 
 			// Keep trying until we find a filename that doesn't exist in the target folder
-			while (await this.app.vault.adapter.exists(fullPath)) {
+			while (this.app.vault.getAbstractFileByPath(fullPath)) {
 				fileName = `Untitled mindmap ${counter}.md`;
-				fullPath = targetFolderPath ? `${targetFolderPath}/${fileName}` : fileName;
+				fullPath = normalizePath(
+					targetFolderPath ? `${targetFolderPath}/${fileName}` : fileName
+				);
 				counter++;
 			}
 

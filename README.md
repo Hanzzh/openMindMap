@@ -6,23 +6,11 @@ A powerful Obsidian plugin (openMindMap) that automatically renders Markdown fil
 
 ## ⚡ Quick Start
 
-Get started with openMindMap in 3 minutes:
+Get started with openMindMap in 2 minutes:
 
-### 1. Install the plugin (30 seconds)
+### 1. Install the plugin
 
-Run this command in your vault directory:
-
-```bash
-mkdir -p .obsidian/plugins/obsidian-mindmap-plugin && \
-curl -L -o .obsidian/plugins/obsidian-mindmap-plugin/main.js \
-  https://raw.githubusercontent.com/Hanzzh/openMindMap/main/main.js && \
-curl -L -o .obsidian/plugins/obsidian-mindmap-plugin/manifest.json \
-  https://raw.githubusercontent.com/Hanzzh/openMindMap/main/manifest.json && \
-curl -L -o .obsidian/plugins/obsidian-mindmap-plugin/styles.css \
-  https://raw.githubusercontent.com/Hanzzh/openMindMap/main/styles.css
-```
-
-Then enable the plugin in **Obsidian Settings → Community plugins → Installed**
+Search for "openMindMap" in **Obsidian Settings → Community plugins → Browse**, then click **Install** and **Enable**.
 
 ### 2. Create your first mind map (1 minute)
 
@@ -52,7 +40,6 @@ Create a new markdown file with this content:
 - [Quick Start](#quick-start)
 - [Plugin Introduction](#plugin-introduction)
 - [Core Features](#core-features)
-- [Installation](#installation)
 - [Usage Guide](#usage-guide)
 - [AI Features](#ai-function-usage-guide)
 - [Interactive Operations](#interactive-operation-instructions)
@@ -98,10 +85,6 @@ This plugin provides mind map visualization functionality for Obsidian. When you
 - Automatically adapts node colors, text colors, and background colors
 - Maintains consistency with the Obsidian interface
 
-### 💾 State Persistence
-- Remembers canvas zoom position and panning state
-- Restores previous view state when returning after switching files
-
 ### 🤖 AI Smart Suggestions
 - ✨ **AI-driven node content suggestions**: Intelligently analyzes node content to generate relevant suggestions
 - 🔌 **Supports any OpenAI-compatible API**: Works with OpenAI, Anthropic, local models, etc.
@@ -116,34 +99,6 @@ This plugin provides mind map visualization functionality for Obsidian. When you
 - 🔑 **Device-bound keys** - encrypted data cannot be decrypted on other devices
 
 *See [AI Features - Security](#ai-security) for detailed security information.*
-
-## 📦 Installation
-
-Run this command in your vault directory:
-
-```bash
-mkdir -p .obsidian/plugins/obsidian-mindmap-plugin && \
-curl -L -o .obsidian/plugins/obsidian-mindmap-plugin/main.js \
-  https://raw.githubusercontent.com/Hanzzh/openMindMap/main/main.js && \
-curl -L -o .obsidian/plugins/obsidian-mindmap-plugin/manifest.json \
-  https://raw.githubusercontent.com/Hanzzh/openMindMap/main/manifest.json && \
-curl -L -o .obsidian/plugins/obsidian-mindmap-plugin/styles.css \
-  https://raw.githubusercontent.com/Hanzzh/openMindMap/main/styles.css
-```
-
-Then enable the plugin in **Obsidian Settings → Community plugins → Installed**
-
----
-
-### Verify Installation
-
-Ensure you have:
-```
-.obsidian/plugins/obsidian-mindmap-plugin/
-├── main.js
-├── manifest.json
-└── styles.css
-```
 
 ## 🚀 Usage Guide
 
@@ -200,6 +155,19 @@ Ensure you have:
         * Lessons Learned
         * Improvement Suggestions
 ```
+
+## 🌐 Network Usage
+
+This plugin uses network connections **only** for the optional AI-powered node suggestion feature:
+
+- **Purpose**: Send node context to user-configured AI APIs to generate content suggestions
+- **When**: Only when you click the AI suggestion button (✨) on a node
+- **Services**: OpenAI-compatible APIs (user-configured - OpenAI, Anthropic, local models, etc.)
+- **Data sent**: Node text, hierarchy context, parent/sibling/child nodes
+- **Data storage**: API keys are encrypted with AES-256 and stored locally
+- **Opt-out**: AI features are completely optional - the plugin works fully without them
+
+**No other network requests are made. No telemetry, analytics, or data collection.**
 
 ## 🤖 AI Function Usage Guide
 
@@ -539,6 +507,22 @@ If you are a developer wanting to participate in development or modify the plugi
 - **Usage Questions**: Please first check the "Troubleshooting" section of this document
 
 ## 🎉 Acknowledgments
+
+### Third-Party Libraries
+
+This plugin uses the following open-source libraries:
+
+- **D3.js v7.9.0** (ISC License)
+  - Copyright (c) 2010-2023 Mike Bostock
+  - Used for interactive data visualization and rendering
+  - Repository: https://github.com/d3/d3
+  - License: https://github.com/d3/d3/blob/main/LICENSE
+
+- **Obsidian API** (MIT License)
+  - Official Obsidian plugin development kit
+  - Used for plugin integration with Obsidian
+
+### Special Thanks
 
 - Thanks to the Obsidian team for providing a powerful note-taking platform
 - Thanks to the D3.js community for excellent visualization tools

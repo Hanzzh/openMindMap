@@ -168,8 +168,6 @@ export class D3InteractionHandler implements MindMapInteractionHandler {
         // Enable content editing
         editElement.contentEditable = "true";
         editElement.classList.add("editing");
-        editElement.style.cursor = "text";
-        editElement.style.userSelect = "text";
 
         // Select all text
         const range = document.createRange();
@@ -201,8 +199,6 @@ export class D3InteractionHandler implements MindMapInteractionHandler {
                 // Set to non-editable
                 editElement.contentEditable = "false";
                 editElement.classList.remove("editing");
-                editElement.style.cursor = "pointer";
-                editElement.style.userSelect = "none";
 
                 // Note: Event listeners are not explicitly removed
                 // This is safe because editingState.isEditing will be false,
@@ -354,7 +350,7 @@ export class D3InteractionHandler implements MindMapInteractionHandler {
             const editHint = this.config?.isMobile
                 ? this.messages.ui.editHintMobile
                 : this.messages.ui.editHintDesktop;
-            hintElement.innerHTML = editHint;
+            hintElement.textContent = editHint;
             document.body.appendChild(hintElement);
         }
         hintElement.classList.add('show');
@@ -377,20 +373,6 @@ export class D3InteractionHandler implements MindMapInteractionHandler {
         const errorElement = document.createElement('div');
         errorElement.className = 'mind-map-validation-error';
         errorElement.textContent = message;
-        errorElement.style.cssText = `
-            position: fixed;
-            top: 50px;
-            right: 20px;
-            background: var(--background-modifier-error);
-            color: var(--color-red);
-            padding: 12px 16px;
-            border-radius: 6px;
-            border: 1px solid var(--color-red);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            z-index: 1000;
-            font-size: ${STYLE_CONSTANTS.INTERACTION_UI_FONT_SIZE};
-            max-width: 300px;
-        `;
         document.body.appendChild(errorElement);
 
         // Auto remove after 3 seconds
@@ -408,20 +390,6 @@ export class D3InteractionHandler implements MindMapInteractionHandler {
         const successElement = document.createElement('div');
         successElement.className = 'mind-map-success-message';
         successElement.textContent = message;
-        successElement.style.cssText = `
-            position: fixed;
-            top: 50px;
-            right: 20px;
-            background: var(--background-modifier-success);
-            color: var(--text-success);
-            padding: 12px 16px;
-            border-radius: 6px;
-            border: 1px solid var(--color-green);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            z-index: 1000;
-            font-size: ${STYLE_CONSTANTS.INTERACTION_UI_FONT_SIZE};
-            max-width: 300px;
-        `;
         document.body.appendChild(successElement);
 
         // Auto remove after 2 seconds

@@ -66,7 +66,10 @@ export class D3FileHandler implements MindMapFileHandler {
             const file = this.app.vault.getAbstractFileByPath(filePath);
 
             if (file instanceof TFile) {
-                await this.app.vault.modify(file, newContent);
+                // Use vault.process() for atomic modification
+                await this.app.vault.process(file, () => {
+                    return newContent;
+                });
             } else {
                 throw new Error(`File not found: ${filePath}`);
             }

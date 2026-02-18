@@ -21,10 +21,10 @@
 }
 
 /* Accessibility: Keyboard focus indicator for nodes */
+/* Disabled: Removed to avoid double border conflict with selected-rect */
 .nodes g[role="button"]:focus .node-rect,
 .nodes g[role="button"]:focus-visible .node-rect {
-    outline: 2px solid var(--interactive-accent);
-    outline-offset: 3px;
+    outline: none;  /* 移除 focus 边框，避免与选中边框冲突 */
 }
 
 /* Selected node - 重要：高亮边框 */
@@ -82,9 +82,13 @@
 }
 
 /* 编辑模式样式 - 重要 */
-.node-unified-text.editing {
+.editing {
     cursor: text !important;
     user-select: text !important;
+    pointer-events: auto !important;
+}
+
+.node-unified-text.editing {
     background-color: rgba(255, 255, 255, 0.95) !important;
     box-shadow: 0 0 0 2px var(--interactive-accent) !important;
     border-radius: 4px;
@@ -219,6 +223,22 @@
     max-width: 300px;
     word-wrap: break-word;
     animation: slide-in-right 0.3s ease;
+}
+
+/* Fading out animation */
+.mind-map-validation-error.fading-out,
+.mind-map-success-message.fading-out {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+/* Screen reader announcer - visually hidden but accessible */
+.mindmap-announcer {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
 }
 
 /* ------------------------------------------------------------------------

@@ -19,14 +19,6 @@ export class AccessibilityUtil {
 			this.liveRegion.setAttribute('aria-live', 'polite');
 			this.liveRegion.setAttribute('aria-atomic', 'true');
 			this.liveRegion.className = 'mindmap-announcer';
-			// Hide visually but keep accessible to screen readers
-			this.liveRegion.style.cssText = `
-				position: absolute;
-				left: -10000px;
-				width: 1px;
-				height: 1px;
-				overflow: hidden;
-			`;
 			document.body.appendChild(this.liveRegion);
 		}
 	}

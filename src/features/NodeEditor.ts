@@ -140,11 +140,6 @@ export class NodeEditor {
 				}
 			}, 10);
 
-			// 设置正确的样式，确保鼠标事件能正常触发
-			editElement.style.userSelect = 'auto';
-			editElement.style.cursor = 'text';
-			editElement.style.pointerEvents = 'auto';
-
 			// 显示编辑提示（延后调用，避免干扰焦点）
 			setTimeout(() => {
 				this.showEditingHint();
@@ -372,28 +367,11 @@ export class NodeEditor {
 		const errorElement = document.createElement('div');
 		errorElement.className = 'mind-map-validation-error';
 		errorElement.textContent = message;
-		errorElement.style.cssText = `
-			position: fixed;
-			top: 50px;
-			right: 20px;
-			background: var(--background-modifier-error);
-			color: var(--color-red);
-			border: 1px solid var(--color-red);
-			border-radius: 6px;
-			padding: 8px 12px;
-			font-size: var(--font-ui-smaller);
-			z-index: 1002;
-			box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-			transition: opacity 0.2s ease;
-			max-width: 300px;
-			word-wrap: break-word;
-		`;
-
 		document.body.appendChild(errorElement);
 
 		// 3秒后自动移除
 		setTimeout(() => {
-			errorElement.style.opacity = '0';
+			errorElement.classList.add('fading-out');
 			setTimeout(() => {
 				if (errorElement.parentNode) {
 					errorElement.parentNode.removeChild(errorElement);

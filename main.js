@@ -5910,9 +5910,6 @@ var NodeEditor = class {
           this.exitEditMode();
         }
       }, 10);
-      editElement.style.userSelect = "auto";
-      editElement.style.cursor = "text";
-      editElement.style.pointerEvents = "auto";
       setTimeout(() => {
         this.showEditingHint();
       }, 100);
@@ -6076,25 +6073,9 @@ var NodeEditor = class {
     const errorElement = document.createElement("div");
     errorElement.className = "mind-map-validation-error";
     errorElement.textContent = message;
-    errorElement.style.cssText = `
-			position: fixed;
-			top: 50px;
-			right: 20px;
-			background: var(--background-modifier-error);
-			color: var(--color-red);
-			border: 1px solid var(--color-red);
-			border-radius: 6px;
-			padding: 8px 12px;
-			font-size: var(--font-ui-smaller);
-			z-index: 1002;
-			box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-			transition: opacity 0.2s ease;
-			max-width: 300px;
-			word-wrap: break-word;
-		`;
     document.body.appendChild(errorElement);
     setTimeout(() => {
-      errorElement.style.opacity = "0";
+      errorElement.classList.add("fading-out");
       setTimeout(() => {
         if (errorElement.parentNode) {
           errorElement.parentNode.removeChild(errorElement);
@@ -7389,7 +7370,9 @@ var D3FileHandler = class {
       const newContent = generateMarkdownFromNodes(rootNode);
       const file = this.app.vault.getAbstractFileByPath(filePath);
       if (file instanceof import_obsidian4.TFile) {
-        await this.app.vault.modify(file, newContent);
+        await this.app.vault.process(file, () => {
+          return newContent;
+        });
       } else {
         throw new Error(`File not found: ${filePath}`);
       }
@@ -8962,17 +8945,15 @@ var MindMapPlugin = class extends import_obsidian6.Plugin {
       this.activateView();
     });
     ribbonIconEl.addClass("mind-map-ribbon-class");
-    const statusBarItemEl = this.addStatusBarItem();
-    statusBarItemEl.setText("openMindMap Ready");
     this.addCommand({
-      id: "open-mind-map",
+      id: "open-view",
       name: "Open mind map view",
       callback: () => {
         this.activateView();
       }
     });
     this.addCommand({
-      id: "open-mind-map-current",
+      id: "open-current",
       name: "Open current file as mind map",
       checkCallback: (checking) => {
         const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian6.MarkdownView);
@@ -8982,10 +8963,11 @@ var MindMapPlugin = class extends import_obsidian6.Plugin {
           }
           return true;
         }
+        return false;
       }
     });
     this.addCommand({
-      id: "mindmap-undo",
+      id: "undo",
       name: "Undo",
       checkCallback: (checking) => {
         const activeView = this.app.workspace.getActiveViewOfType(MindMapView);
@@ -8999,7 +8981,7 @@ var MindMapPlugin = class extends import_obsidian6.Plugin {
       }
     });
     this.addCommand({
-      id: "mindmap-redo",
+      id: "redo",
       name: "Redo",
       checkCallback: (checking) => {
         const activeView = this.app.workspace.getActiveViewOfType(MindMapView);
@@ -9089,7 +9071,12 @@ var MindMapPlugin = class extends import_obsidian6.Plugin {
   }
   async loadStyles() {
     try {
-      const cssContent = await this.app.vault.adapter.read(`${this.manifest.dir}/styles.css`);
+      const cssPath = (0, import_obsidian6.normalizePath)(`${this.manifest.dir}/styles.css`);
+      const cssFile = this.app.vault.getAbstractFileByPath(cssPath);
+      if (!(cssFile instanceof import_obsidian6.TFile)) {
+        throw new Error("CSS file not found");
+      }
+      const cssContent = await this.app.vault.read(cssFile);
       const styleEl = document.createElement("style");
       styleEl.textContent = cssContent;
       styleEl.id = "mind-map-styles";
@@ -9100,23 +9087,23 @@ var MindMapPlugin = class extends import_obsidian6.Plugin {
   }
   // Replace current view with mind map view
   async replaceWithMindMapView(file) {
-    var _a;
-    const activeLeaf = this.app.workspace.getActiveViewOfType(import_obsidian6.FileView);
-    if (activeLeaf && activeLeaf.leaf) {
-      await activeLeaf.leaf.setViewState({
+    const activeView = this.app.workspace.getActiveViewOfType(import_obsidian6.FileView);
+    if (activeView && activeView.leaf) {
+      await activeView.leaf.setViewState({
         type: MIND_MAP_VIEW_TYPE,
         active: true,
         state: { file: file.path }
       });
     } else {
-      const leaf = ((_a = this.app.workspace.getActiveViewOfType(import_obsidian6.MarkdownView)) == null ? void 0 : _a.leaf) || this.app.workspace.activeLeaf;
+      const activeEditor = this.app.workspace.activeEditor;
+      const editorView = activeEditor;
+      const leaf = (editorView == null ? void 0 : editorView.leaf) || this.app.workspace.getMostRecentLeaf();
       if (leaf) {
         await leaf.setViewState({
           type: MIND_MAP_VIEW_TYPE,
           active: true,
           state: { file: file.path }
         });
-      } else {
       }
     }
   }
@@ -9148,10 +9135,14 @@ var MindMapPlugin = class extends import_obsidian6.Plugin {
       }
       let fileName = "Untitled mindmap.md";
       let counter = 1;
-      let fullPath = targetFolderPath ? `${targetFolderPath}/${fileName}` : fileName;
-      while (await this.app.vault.adapter.exists(fullPath)) {
+      let fullPath = (0, import_obsidian6.normalizePath)(
+        targetFolderPath ? `${targetFolderPath}/${fileName}` : fileName
+      );
+      while (this.app.vault.getAbstractFileByPath(fullPath)) {
         fileName = `Untitled mindmap ${counter}.md`;
-        fullPath = targetFolderPath ? `${targetFolderPath}/${fileName}` : fileName;
+        fullPath = (0, import_obsidian6.normalizePath)(
+          targetFolderPath ? `${targetFolderPath}/${fileName}` : fileName
+        );
         counter++;
       }
       const content = "#mindmap\n";
