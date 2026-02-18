@@ -65,7 +65,7 @@ export class MouseInteraction {
 
 			// 点击事件处理器
 			nodeElement.on("click", (event: MouseEvent) => {
-				self.handleNodeClick(event, d, nodeRect as any);
+				self.handleNodeClick(event, d, nodeRect as d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, SVGGElement, unknown>);
 			});
 		});
 	}
@@ -86,7 +86,7 @@ export class MouseInteraction {
 
 			// 鼠标进入事件
 			nodeElement.on("mouseenter", (event: MouseEvent) => {
-				self.handleNodeHover(event, d, nodeRect as any);
+				self.handleNodeHover(event, d, nodeRect as d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, SVGGElement, unknown>);
 			});
 
 			// 鼠标离开事件
@@ -246,7 +246,7 @@ export class MouseInteraction {
 	private handleNodeClick(
 		event: MouseEvent,
 		node: d3.HierarchyNode<MindMapNode>,
-		nodeRect: d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, any, unknown>
+		nodeRect: d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, SVGGElement, unknown>
 	): void {
 
 		const currentTime = Date.now();
@@ -300,7 +300,7 @@ export class MouseInteraction {
 	 */
 	private performNodeSelection(
 		node: d3.HierarchyNode<MindMapNode>,
-		nodeRect: d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, any, unknown>
+		nodeRect: d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, SVGGElement, unknown>
 	): void {
 		// 如果正在编辑，检查是否点击的是不同的节点
 		if (this.callbacks.isEditing?.()) {
@@ -349,7 +349,7 @@ export class MouseInteraction {
 	private handleNodeHover(
 		event: MouseEvent,
 		node: d3.HierarchyNode<MindMapNode>,
-		nodeRect: d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, any, unknown>
+		nodeRect: d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, SVGGElement, unknown>
 	): void {
 		// 如果节点已经是选中状态，不应用悬停效果
 		if (node.data.selected) {
@@ -378,7 +378,7 @@ export class MouseInteraction {
 	private handleNodeLeave(
 		event: MouseEvent,
 		node: d3.HierarchyNode<MindMapNode>,
-		nodeRect: d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, any, unknown>
+		nodeRect: d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, SVGGElement, unknown>
 	): void {
 		// 如果节点是选中状态，不清除悬停状态（选中状态优先级更高）
 		if (node.data.selected) {
@@ -397,7 +397,7 @@ export class MouseInteraction {
 	 */
 	private clearNodeHoverState(
 		node: d3.HierarchyNode<MindMapNode>,
-		nodeRect: d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, any, unknown>
+		nodeRect: d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, SVGGElement, unknown>
 	): void {
 		node.data.hovered = false;
 		nodeRect.classed("hovered-rect", false);

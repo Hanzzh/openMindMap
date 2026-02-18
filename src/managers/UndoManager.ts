@@ -4,7 +4,7 @@
  * Manages undo/redo functionality using memento pattern (full state snapshots)
  */
 
-import { MindMapData } from '../interfaces/mindmap-interfaces';
+import { MindMapData, MindMapNode } from '../interfaces/mindmap-interfaces';
 
 export class UndoManager {
     private undoStack: MindMapData[] = [];
@@ -130,12 +130,12 @@ export class UndoManager {
     /**
      * Deep clone a MindMapNode recursively
      */
-    private deepCloneNode(node: any): any {
+    private deepCloneNode(node: MindMapNode): MindMapNode {
         const clone = { ...node };
 
         // Deep clone children recursively
         if (node.children && Array.isArray(node.children)) {
-            clone.children = node.children.map((child: any) => this.deepCloneNode(child));
+            clone.children = node.children.map((child: MindMapNode) => this.deepCloneNode(child));
         }
 
         // Remove parent reference (will be reconstructed)
@@ -148,7 +148,7 @@ export class UndoManager {
      * Rebuild parent references for all nodes in the tree
      * This must be called after deep cloning to restore parent links
      */
-    private rebuildParentReferences(node: any): void {
+    private rebuildParentReferences(node: MindMapNode): void {
         if (!node || !node.children || !Array.isArray(node.children)) {
             return;
         }

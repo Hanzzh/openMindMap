@@ -113,7 +113,7 @@ export class NodeRenderer {
 		dimensions: NodeDimensions,
 		offsetX: number,
 		offsetY: number
-	): d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, any, unknown> {
+	): d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, SVGGElement, unknown> {
 		// 此方法可用于动态添加单个节点
 		// 当前实现中使用 renderNodes 批量创建
 		throw new Error("Method not implemented. Use renderNodes() instead.");
@@ -128,7 +128,7 @@ export class NodeRenderer {
 	 * @returns 矩形元素
 	 */
 	createNodeRect(
-		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, any, unknown>,
+		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, SVGGElement, unknown>,
 		nodeData: d3.HierarchyNode<MindMapNode>,
 		dimensions: NodeDimensions
 	): d3.Selection<SVGRectElement, d3.HierarchyNode<MindMapNode>, SVGElement, unknown> {

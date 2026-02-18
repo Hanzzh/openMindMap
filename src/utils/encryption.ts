@@ -19,7 +19,7 @@ export class EncryptionUtil {
 		// In production, you might want to use a user-provided password
 		const keyMaterial = await crypto.subtle.importKey(
 			'raw',
-			this.getKeyMaterial() as any,
+			this.getKeyMaterial() as unknown as ArrayBuffer,
 			{ name: 'PBKDF2' },
 			false,
 			['deriveKey']
@@ -29,7 +29,7 @@ export class EncryptionUtil {
 		this.keyPromise = crypto.subtle.deriveKey(
 			{
 				name: 'PBKDF2',
-				salt: this.getSalt() as any,  // Type assertion for Web Crypto API compatibility
+				salt: this.getSalt() as BufferSource,
 				iterations: 100000,
 				hash: 'SHA-256'
 			},

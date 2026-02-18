@@ -67,7 +67,7 @@ export class RendererCoordinator implements MindMapRenderer {
 	// ========== 状态管理 ==========
 	private currentSvg: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null;
 	private currentContent: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
-	private currentZoom: d3.ZoomBehavior<any, unknown> | null = null;
+	private currentZoom: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
 	private currentZoomTransform = d3.zoomIdentity;
 	private currentData: MindMapData | null = null;
 
@@ -76,8 +76,8 @@ export class RendererCoordinator implements MindMapRenderer {
 	private pendingRenderRequest = false;
 
 	// 选中状态
-	private selectedNode: d3.HierarchyNode<any> | null = null;
-	private hoveredNode: d3.HierarchyNode<any> | null = null;
+	private selectedNode: d3.HierarchyNode<MindMapNode> | null = null;
+	private hoveredNode: d3.HierarchyNode<MindMapNode> | null = null;
 
 	// 编辑状态（共享给所有模块）
 	private editingState: EditingState = {
@@ -407,21 +407,21 @@ export class RendererCoordinator implements MindMapRenderer {
 		this.linkRenderer.renderLinks(this.currentContent, root.links(), offsetX, offsetY);
 	}
 
-	private renderNodes(root: d3.HierarchyNode<any>, offsetX: number, offsetY: number): void {
+	private renderNodes(root: d3.HierarchyNode<MindMapNode>, offsetX: number, offsetY: number): void {
 		// 使用 NodeRenderer 渲染节点矩形
 		const nodeElements = this.nodeRenderer.renderNodes(this.currentContent, root.descendants(), offsetX, offsetY);
 
 		// 使用 TextRenderer 渲染文本（批量处理所有节点）
-		this.textRenderer.renderText(nodeElements, undefined, this);
+		this.textRenderer.renderText(nodeElements, undefined, this as unknown as { config?: MindMapConfig; editingState?: EditingState });
 
 		// 附加交互处理器
-		this.attachInteractionHandlers(nodeElements);
+		this.attachInteractionHandlers(nodeElements as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>);
 	}
 
 	private setupZoom(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>, container: Element): void {
 		this.currentZoom = d3.zoom<SVGSVGElement, unknown>()
 			.scaleExtent([0.1, 4])
-			.filter((event: any) => {
+			.filter((event: Event) => {
 				// 检查画布交互是否启用（编辑模式下为 false）
 				if (!this.canvasInteractionEnabled) {
 					return false;
@@ -471,10 +471,10 @@ export class RendererCoordinator implements MindMapRenderer {
 	}
 
 	private attachInteractionHandlers(
-		nodeElements: d3.Selection<SVGGElement, d3.HierarchyNode<any>, any, any>
+		nodeElements: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>
 	): void {
 		// 使用 InteractionManager 附加处理器
-		this.interactionManager.attachHandlers(this.currentSvg, nodeElements as any);
+		this.interactionManager.attachHandlers(this.currentSvg, nodeElements);
 
 		// 移动端：创建工具栏
 		if (this.config.isMobile && this.mobileToolbar) {

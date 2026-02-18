@@ -9,6 +9,7 @@
  */
 
 import { MindMapConfig } from '../config/types';
+import { MindMapNode } from '../interfaces/mindmap-interfaces';
 import { InteractionCallbacks } from '../handlers/interaction-handler';
 import { DesktopInteraction } from './desktop-interaction';
 
@@ -41,7 +42,7 @@ export class MobileInteraction extends DesktopInteraction {
      */
     handleNodeClick(
         event: MouseEvent,
-        node: d3.HierarchyNode<any>,
+        node: d3.HierarchyNode<MindMapNode>,
         nodeRect: d3.Selection<SVGRectElement, unknown, null, undefined>
     ): void {
         // Detect if this is a touch event
@@ -55,7 +56,7 @@ export class MobileInteraction extends DesktopInteraction {
      * Handle node double click with mobile optimizations
      * Phase 2: Touch-aware double-tap detection
      */
-    handleNodeDoubleClick(node: d3.HierarchyNode<any>): void {
+    handleNodeDoubleClick(node: d3.HierarchyNode<MindMapNode>): void {
         const currentTime = Date.now();
         const timeSinceLastTouch = currentTime - this.lastTouchTime;
 
@@ -85,10 +86,11 @@ export class MobileInteraction extends DesktopInteraction {
      *
      * Note: Full pinch-to-zoom requires D3.js event handler modifications
      */
-    handleZoom(event: any): void {
+    handleZoom(event: d3.D3ZoomEvent<SVGSVGElement, unknown>): void {
         // Detect if event has touch properties (pinch gesture)
         // TODO: Phase 3 - Implement full pinch-to-zoom support
-        if (event && event.touches && event.touches.length === 2) {
+        const d3Event = event as d3.D3ZoomEvent<SVGSVGElement, unknown> & { touches?: TouchList };
+        if (d3Event && d3Event.touches && d3Event.touches.length === 2) {
             // Pinch gesture detected (could be logged for debugging)
         }
 
@@ -100,15 +102,18 @@ export class MobileInteraction extends DesktopInteraction {
      * Detect if event is a touch event
      * Phase 2: Basic touch detection
      */
-    private detectTouchEvent(event: any): boolean {
+    private detectTouchEvent(event: MouseEvent | TouchEvent | PointerEvent): boolean {
         // Check for TouchEvent or mouse events triggered by touch
-        return (
-            event instanceof TouchEvent ||
-            (event.pointerType === 'touch') ||
-            (event.type === 'touchend') ||
-            // Some mobile browsers trigger pointer events
-            (event.pointerType === 'pen' && event.pressure > 0)
-        );
+        if (event instanceof TouchEvent) {
+            return true;
+        }
+        if ('pointerType' in event) {
+            return (
+                event.pointerType === 'touch' ||
+                (event.pointerType === 'pen' && 'pressure' in event && (event as PointerEvent).pressure > 0)
+            );
+        }
+        return event.type === 'touchend';
     }
 
     /**

@@ -1,4 +1,4 @@
-import { App, MarkdownView, ItemView, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, TFile, FileView, Notice, Platform, TFolder, TAbstractFile, normalizePath } from 'obsidian';
+import { App, MarkdownView, ItemView, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, TFile, FileView, Notice, Platform, TFolder, TAbstractFile, normalizePath, ViewStateResult } from 'obsidian';
 import { RendererManager } from './renderers/renderer-manager';
 import { RendererCoordinator } from './renderers/renderer-coordinator';
 import { MindMapService } from './services/mindmap-service';
@@ -302,8 +302,8 @@ export default class MindMapPlugin extends Plugin {
 		} else {
 			// Fallback: try to get a leaf through the active editor
 			const activeEditor = this.app.workspace.activeEditor;
-			// Use type assertion to access leaf property
-			const editorView = activeEditor as any;
+			// Type assertion for Obsidian API compatibility
+			const editorView = activeEditor as { leaf?: WorkspaceLeaf };
 			const leaf = editorView?.leaf || this.app.workspace.getMostRecentLeaf();
 
 			if (leaf) {
@@ -531,7 +531,7 @@ class MindMapView extends ItemView {
 		};
 	}
 
-	setState(state: any, result: any) {
+	setState(state: { file?: string }, result: ViewStateResult) {
 		this.filePath = state.file || null;
 		this.isStateLoaded = true;
 

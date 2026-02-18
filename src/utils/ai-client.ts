@@ -344,7 +344,13 @@ export class AIClient {
 	 * @returns Validated content string
 	 * @throws Error if response structure is invalid or content is empty
 	 */
-	private validateAPIResponseStructure(data: any, context: string): string {
+	private validateAPIResponseStructure(data: {
+		choices?: Array<{
+			message?: { content?: string; reasoning_content?: string };
+			finish_reason?: string;
+		}>;
+		usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+	}, context: string): string {
 
 		// Check if data exists
 		if (!data) {

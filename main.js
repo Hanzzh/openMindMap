@@ -7775,9 +7775,13 @@ var I18nManager = class {
    * Get nested value from object using dot notation
    */
   getNestedValue(obj, path) {
-    return path.split(".").reduce((current, prop) => {
-      return current == null ? void 0 : current[prop];
-    }, obj) || "";
+    const result = path.split(".").reduce((current, prop) => {
+      if (current && typeof current === "object" && prop in current) {
+        return current[prop];
+      }
+      return void 0;
+    }, obj);
+    return result || "";
   }
   /**
    * Replace parameters in message template
@@ -8788,7 +8792,6 @@ var EncryptionUtil = class {
       {
         name: "PBKDF2",
         salt: this.getSalt(),
-        // Type assertion for Web Crypto API compatibility
         iterations: 1e5,
         hash: "SHA-256"
       },

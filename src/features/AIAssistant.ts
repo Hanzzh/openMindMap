@@ -72,7 +72,7 @@ export class AIAssistant {
 	 * @param dimensions 节点尺寸
 	 */
 	renderAIButton(
-		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, any, any>,
+		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>,
 		node: d3.HierarchyNode<MindMapNode>,
 		dimensions: NodeDimensions
 	): void {
@@ -132,7 +132,7 @@ export class AIAssistant {
 	 * @param nodeElement 节点元素选择集
 	 */
 	removeAIButton(
-		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, any, any>
+		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>
 	): void {
 		const buttonGroup = nodeElement.select(".ai-suggest-button-group");
 		if (!buttonGroup.empty()) {

@@ -93,7 +93,7 @@ export class ButtonRenderer {
 
 			// 只为选中的节点渲染+号按钮
 			if (d.data.selected) {
-				self.renderPlusButton(nodeElement as any, d, dimensions);
+				self.renderPlusButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, d, dimensions);
 			}
 		});
 	}
@@ -106,7 +106,7 @@ export class ButtonRenderer {
 	 * @param dimensions 节点尺寸
 	 */
 	renderPlusButton(
-		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, any, any>,
+		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>,
 		node: d3.HierarchyNode<MindMapNode>,
 		dimensions: NodeDimensions
 	): void {
@@ -161,7 +161,7 @@ export class ButtonRenderer {
 	 * @param nodeElement 节点元素选择集
 	 */
 	removePlusButton(
-		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, any, any>
+		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>
 	): void {
 		const buttonGroup = nodeElement.select(".plus-button-group");
 		if (!buttonGroup.empty()) {

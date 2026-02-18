@@ -71,7 +71,7 @@ export interface NodePosition {
 export interface MindMapRenderer {
     render(container: Element, data: MindMapData): void;
     destroy(): void;
-    onTextChanged?: (node: d3.HierarchyNode<any>, newText: string) => void;
+    onTextChanged?: (node: d3.HierarchyNode<MindMapNode>, newText: string) => void;
     onDataUpdated?: () => void;
     onDataRestored?: (data: MindMapData) => void;  // 当 undo/redo 恢复数据时调用
 }
@@ -161,8 +161,16 @@ export interface MindMapFileHandler {
  * State handler interface for view state management
  */
 export interface MindMapStateHandler {
-    getViewState(): any;
-    setViewState(state: any): Promise<void>;
+    getViewState(): {
+        file: string | null;
+        zoomTransform?: d3.ZoomTransform;
+        scrollPosition?: { x: number; y: number };
+    };
+    setViewState(state: {
+        file: string | null;
+        zoomTransform?: d3.ZoomTransform;
+        scrollPosition?: { x: number; y: number };
+    }): Promise<void>;
     isStateLoaded(): boolean;
 }
 
@@ -173,7 +181,7 @@ export interface MindMapInteractionHandler {
     handleNodeClick(event: MouseEvent, node: d3.HierarchyNode<MindMapNode>, nodeRect: d3.Selection<SVGRectElement, unknown, null, undefined>): void;
     handleNodeDoubleClick(node: d3.HierarchyNode<MindMapNode>): void;
     handleCanvasClick(event: MouseEvent): void;
-    handleZoom(event: any): void;
+    handleZoom(event: d3.D3ZoomEvent<SVGSVGElement, unknown>): void;
 }
 
 // ============================================================================

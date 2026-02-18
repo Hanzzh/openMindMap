@@ -32,7 +32,7 @@ export class TextRenderer {
 		private onTextEdit?: (
 			event: KeyboardEvent,
 			textDivNode: HTMLDivElement,
-			self: any
+			self: TextRenderer
 		) => void
 	) {}
 
@@ -46,12 +46,18 @@ export class TextRenderer {
 	renderText(
 		nodeElements: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, SVGGElement, unknown>,
 		onEditCallback?: (event: KeyboardEvent, textDivNode: HTMLDivElement) => void,
-		parentContext?: any
+		parentContext?: {
+			config?: MindMapConfig;
+			editingState?: EditingState;
+			saveNodeText?: () => void;
+			cancelEditMode?: () => void;
+			textMeasurer?: TextMeasurer;
+		}
 	): void {
 		const self = parentContext || this;
 
 		nodeElements.each(function(d) {
-			const dimensions = self.textMeasurer.getNodeDimensions(d.depth, d.data.text);
+			const dimensions = (self as TextRenderer).textMeasurer.getNodeDimensions(d.depth, d.data.text);
 			const nodeElement = d3.select(this);
 
 			// 根据层级设置对齐方式
@@ -99,7 +105,12 @@ export class TextRenderer {
 				// 附加事件处理器（使用 TextRenderer 实例）
 				if (parentContext && parentContext instanceof Object) {
 					// 如果是 D3TreeRenderer 实例，直接附加事件
-					TextRenderer.attachTextEditHandlersToNode(textDivNode, d, onEditCallback, self);
+					TextRenderer.attachTextEditHandlersToNode(textDivNode, d, onEditCallback, self as {
+						config?: MindMapConfig;
+						editingState?: EditingState;
+						saveNodeText?: () => void;
+						cancelEditMode?: () => void;
+					});
 				}
 			} else {
 			}
@@ -118,7 +129,12 @@ export class TextRenderer {
 		textDivNode: HTMLDivElement,
 		nodeData: d3.HierarchyNode<MindMapNode>,
 		onEditCallback?: (event: KeyboardEvent, textDivNode: HTMLDivElement) => void,
-		parentContext?: any
+		parentContext?: {
+			config?: MindMapConfig;
+			editingState?: EditingState;
+			saveNodeText?: () => void;
+			cancelEditMode?: () => void;
+		}
 	): void {
 		if (!parentContext) {
 			return;
@@ -248,7 +264,7 @@ export class TextRenderer {
 	 * @param editingState 新的编辑状态
 	 */
 	updateEditingState(editingState: EditingState): void {
-		(this.editingState as any) = editingState;
+		this.editingState = editingState;
 	}
 
 	/**
@@ -256,9 +272,9 @@ export class TextRenderer {
 	 *
 	 * @param parentContext 新的父级上下文
 	 */
-	updateParentContext(parentContext: any): void {
+	updateParentContext(parentContext: { config?: MindMapConfig; editingState?: EditingState }): void {
 		this.onTextEdit = ((event: KeyboardEvent, textDivNode: HTMLDivElement) => {
 			// 可以在这里添加自定义处理逻辑
-		}) as any;
+		}) as (event: KeyboardEvent, textDivNode: HTMLDivElement, self: TextRenderer) => void;
 	}
 }

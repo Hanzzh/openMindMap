@@ -136,11 +136,11 @@ export class D3InteractionHandler implements MindMapInteractionHandler {
     /**
      * Handle zoom events
      */
-    handleZoom(event: any): void {
+    handleZoom(event: d3.D3ZoomEvent<SVGSVGElement, unknown>): void {
         const { transform } = event;
 
         // Apply transform to content group
-        d3.select(".mind-map-content").attr("transform", transform);
+        d3.select(".mind-map-content").attr("transform", transform.toString());
     }
 
     /**
@@ -317,7 +317,7 @@ export class D3InteractionHandler implements MindMapInteractionHandler {
             this.selectedNode.data.selected = false;
             // Update visual state of previously selected node
             d3.selectAll(".node-rect")
-                .filter((d: any) => d === this.selectedNode)
+                .filter((d: d3.HierarchyNode<MindMapNode>) => d === this.selectedNode)
                 .classed("selected-rect", false);
         }
 

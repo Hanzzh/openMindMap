@@ -6,6 +6,5 @@
 	"description": "Transform Markdown files starting with #mindmap into interactive mind maps with AI-powered node suggestions and OpenAI-compatible API integration.",
 	"author": "Han",
 	"authorUrl": "https://github.com/Hanzzh",
-	"fundingUrl": "",
 	"isDesktopOnly": false
 }

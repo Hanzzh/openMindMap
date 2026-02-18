@@ -64,7 +64,7 @@ export class I18nManager {
 	 */
 	format(key: string, params?: Record<string, string | number>): string {
 		// Access nested property using dot notation
-		const message = this.getNestedValue(this.messages, key);
+		const message = this.getNestedValue(this.messages as unknown as Record<string, unknown>, key);
 
 		if (!message) {
 			return key;
@@ -81,10 +81,14 @@ export class I18nManager {
 	/**
 	 * Get nested value from object using dot notation
 	 */
-	private getNestedValue(obj: any, path: string): string {
-		return path.split('.').reduce((current, prop) => {
-			return current?.[prop];
-		}, obj) || '';
+	private getNestedValue(obj: Record<string, unknown>, path: string): string {
+		const result = path.split('.').reduce((current: unknown, prop) => {
+			if (current && typeof current === 'object' && prop in current) {
+				return (current as Record<string, unknown>)[prop];
+			}
+			return undefined;
+		}, obj as unknown);
+		return (result as string) || '';
 	}
 
 	/**

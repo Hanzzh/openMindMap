@@ -4,11 +4,12 @@
  * Manages view state and data persistence
  */
 
+import * as d3 from 'd3';
 import { MindMapStateHandler, MindMapData } from '../interfaces/mindmap-interfaces';
 
 export interface ViewState {
     file: string | null;
-    zoomTransform?: any;
+    zoomTransform?: d3.ZoomTransform;
     scrollPosition?: { x: number; y: number };
 }
 
@@ -24,7 +25,7 @@ export class MindMapStateHandlerImpl implements MindMapStateHandler {
     /**
      * Get current view state
      */
-    getViewState(): any {
+    getViewState(): ViewState {
         return {
             file: this.filePath,
             zoomTransform: this.viewState.zoomTransform,
@@ -35,7 +36,7 @@ export class MindMapStateHandlerImpl implements MindMapStateHandler {
     /**
      * Set view state
      */
-    async setViewState(state: any): Promise<void> {
+    async setViewState(state: ViewState): Promise<void> {
         this.filePath = state.file || null;
         this.viewState = {
             file: this.filePath,
@@ -94,7 +95,7 @@ export class MindMapStateHandlerImpl implements MindMapStateHandler {
     /**
      * Update zoom transform in state
      */
-    updateZoomTransform(transform: any): void {
+    updateZoomTransform(transform: d3.ZoomTransform): void {
         this.viewState.zoomTransform = transform;
     }
 
@@ -108,7 +109,7 @@ export class MindMapStateHandlerImpl implements MindMapStateHandler {
     /**
      * Get zoom transform from state
      */
-    getZoomTransform(): any {
+    getZoomTransform(): d3.ZoomTransform | undefined {
         return this.viewState.zoomTransform;
     }
 

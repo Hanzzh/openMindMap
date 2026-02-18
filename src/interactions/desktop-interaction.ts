@@ -6,6 +6,7 @@
  */
 
 import { MindMapConfig } from '../config/types';
+import { MindMapNode } from '../interfaces/mindmap-interfaces';
 import { InteractionCallbacks, D3InteractionHandler } from '../handlers/interaction-handler';
 
 /**
@@ -59,7 +60,7 @@ export class DesktopInteraction {
      */
     handleNodeClick(
         event: MouseEvent,
-        node: d3.HierarchyNode<any>,
+        node: d3.HierarchyNode<MindMapNode>,
         nodeRect: d3.Selection<SVGRectElement, unknown, null, undefined>
     ): void {
         this.d3InteractionHandler.handleNodeClick(event, node, nodeRect);
@@ -69,7 +70,7 @@ export class DesktopInteraction {
      * Handle node double click
      * Delegates to the existing D3InteractionHandler implementation
      */
-    handleNodeDoubleClick(node: d3.HierarchyNode<any>): void {
+    handleNodeDoubleClick(node: d3.HierarchyNode<MindMapNode>): void {
         this.d3InteractionHandler.handleNodeDoubleClick(node);
     }
 
@@ -85,7 +86,7 @@ export class DesktopInteraction {
      * Handle zoom event
      * Delegates to the existing D3InteractionHandler implementation
      */
-    handleZoom(event: any): void {
+    handleZoom(event: d3.D3ZoomEvent<SVGSVGElement, unknown>): void {
         this.d3InteractionHandler.handleZoom(event);
     }
 

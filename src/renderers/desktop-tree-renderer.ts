@@ -7,7 +7,7 @@
 
 import { App } from 'obsidian';
 import { MindMapConfig } from '../config/types';
-import { MindMapRenderer, MindMapData } from '../interfaces/mindmap-interfaces';
+import { MindMapRenderer, MindMapData, MindMapNode } from '../interfaces/mindmap-interfaces';
 import { RendererCoordinator } from './renderer-coordinator';
 import { MindMapService } from '../services/mindmap-service';
 import { MindMapMessages } from '../i18n';
@@ -94,7 +94,7 @@ export class DesktopTreeRenderer implements MindMapRenderer {
 		return this.rendererCoordinator.onTextChanged;
 	}
 
-	set onTextChanged(callback: ((node: d3.HierarchyNode<any>, newText: string) => void) | undefined) {
+	set onTextChanged(callback: ((node: d3.HierarchyNode<MindMapNode>, newText: string) => void) | undefined) {
 		this.rendererCoordinator.onTextChanged = callback;
 	}
 
