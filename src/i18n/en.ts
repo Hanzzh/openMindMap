@@ -15,8 +15,8 @@ export const en: MindMapMessages = {
 
 		// Node operations
 		nodeDeleted: 'Node deleted successfully',
-		cannotDeleteRoot: '⚠️ Central topic (root node) cannot be deleted',
-		cannotDeleteNoParent: '⚠️ Node has no parent, cannot delete',
+		cannotDeleteRoot: '⚠️ central topic (root node) cannot be deleted',
+		cannotDeleteNoParent: '⚠️ node has no parent, cannot delete',
 		nodeCreated: 'Created: {nodeText}',
 		nodeCreateFailed: 'Failed to create node: {error}',
 
@@ -34,9 +34,9 @@ export const en: MindMapMessages = {
 		apiConnectionSuccess: '✅ API connection successful!',
 		apiConnectionFailed: '❌ API connection failed. Check settings for details.',
 		apiTestTimeout: 'Request timeout after 10 seconds. The API server is not responding. Please check your network connection and API URL.',
-		promptsReset: '✅ Prompt templates reset to default',
+		promptsReset: '✅ prompt templates reset to default',
 		deviceTypeChanged: 'Device type changed. Reload Obsidian to apply changes.',
-		connectionTestFailed: '❌ Connection test failed',
+		connectionTestFailed: '❌ connection test failed',
 
 		// Language
 		languageChanged: 'Language changed to {language}. Reload Obsidian to apply changes.',
@@ -53,9 +53,9 @@ export const en: MindMapMessages = {
 		noMindmapFile: 'No mind map file specified or found. Make sure the file starts with #mindmap',
 
 		// API errors
-		apiKeyNotConfigured: '❌ Error: API key is not configured. Please enter your API key in settings.',
-		apiBaseUrlNotConfigured: '❌ Error: API base URL is not configured.',
-		apiError: '❌ Error: {error}',
+		apiKeyNotConfigured: '❌ error: API key is not configured. Please enter your API key in settings.',
+		apiBaseUrlNotConfigured: '❌ error: API base URL is not configured.',
+		apiError: '❌ error: {error}',
 		networkError: '❌ Network error: {error}. Please check your internet connection and API URL.',
 
 		// Validation errors
@@ -85,7 +85,7 @@ export const en: MindMapMessages = {
 
 	// ==================== Settings (设置界面) ====================
 	settings: {
-		title: 'Settings for openMindMap Plugin',
+		title: 'Settings for openMindMap plugin',
 
 		// Device settings
 		deviceSection: 'Device settings',

@@ -7383,8 +7383,8 @@ var en = {
     fileCreateError: "\u274C Failed to create file: {error}",
     // Node operations
     nodeDeleted: "Node deleted successfully",
-    cannotDeleteRoot: "\u26A0\uFE0F Central topic (root node) cannot be deleted",
-    cannotDeleteNoParent: "\u26A0\uFE0F Node has no parent, cannot delete",
+    cannotDeleteRoot: "\u26A0\uFE0F central topic (root node) cannot be deleted",
+    cannotDeleteNoParent: "\u26A0\uFE0F node has no parent, cannot delete",
     nodeCreated: "Created: {nodeText}",
     nodeCreateFailed: "Failed to create node: {error}",
     // Editing operations
@@ -7399,9 +7399,9 @@ var en = {
     apiConnectionSuccess: "\u2705 API connection successful!",
     apiConnectionFailed: "\u274C API connection failed. Check settings for details.",
     apiTestTimeout: "Request timeout after 10 seconds. The API server is not responding. Please check your network connection and API URL.",
-    promptsReset: "\u2705 Prompt templates reset to default",
+    promptsReset: "\u2705 prompt templates reset to default",
     deviceTypeChanged: "Device type changed. Reload Obsidian to apply changes.",
-    connectionTestFailed: "\u274C Connection test failed",
+    connectionTestFailed: "\u274C connection test failed",
     // Language
     languageChanged: "Language changed to {language}. Reload Obsidian to apply changes.",
     // Editing
@@ -7414,9 +7414,9 @@ var en = {
     fileLoadError: "Error loading file: {error}",
     noMindmapFile: "No mind map file specified or found. Make sure the file starts with #mindmap",
     // API errors
-    apiKeyNotConfigured: "\u274C Error: API key is not configured. Please enter your API key in settings.",
-    apiBaseUrlNotConfigured: "\u274C Error: API base URL is not configured.",
-    apiError: "\u274C Error: {error}",
+    apiKeyNotConfigured: "\u274C error: API key is not configured. Please enter your API key in settings.",
+    apiBaseUrlNotConfigured: "\u274C error: API base URL is not configured.",
+    apiError: "\u274C error: {error}",
     networkError: "\u274C Network error: {error}. Please check your internet connection and API URL.",
     // Validation errors
     nodeTextEmpty: "Node text cannot be empty",
@@ -7441,7 +7441,7 @@ var en = {
   },
   // ==================== Settings (设置界面) ====================
   settings: {
-    title: "Settings for openMindMap Plugin",
+    title: "Settings for openMindMap plugin",
     // Device settings
     deviceSection: "Device settings",
     deviceType: "Device type",
