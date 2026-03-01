@@ -12,13 +12,12 @@
  * - Communicate with external via callbacks, no direct dependency on D3TreeRenderer
  * - Manage own clipboard operations
  * - Provide clear API for clipboard operations
- * - Smart fallback (modern API → legacy method)
+ * - Use modern Clipboard API (Obsidian/Electron support)
  *
  * [Refactoring Source]
  * Extracted from D3TreeRenderer.ts (Phase 3.3)
  * - handleToolbarCopyClick() → copyNode()
  * - handleToolbarPasteClick() → pasteToNode()
- * - fallbackCopyTextToClipboard() → fallbackCopy()
  * - showCopySuccessNotice() → (built-in)
  * - showCopyErrorNotice() → (built-in)
  */
@@ -29,14 +28,6 @@ import { MindMapNode } from '../interfaces/mindmap-interfaces';
 import { MindMapService } from '../services/mindmap-service';
 import { MindMapMessages } from '../i18n';
 import { VALIDATION_CONSTANTS } from '../constants/mindmap-constants';
-
-/**
- * Helper function to set multiple CSS properties at once
- * This provides a cleaner alternative to direct style manipulation
- */
-function setCssProps(element: HTMLElement, props: Record<string, string>): void {
-	Object.assign(element.style, props);
-}
 
 /**
  * Clipboard Manager callback interface
@@ -79,21 +70,10 @@ export class ClipboardManager {
 			// Serialize entire subtree to markdown format
 			const markdown = this.mindMapService.serializeSubtreeToMarkdown(node.data);
 
-			// Use Clipboard API to copy text to clipboard
-			if (navigator.clipboard && window.isSecureContext) {
-				// Use modern Clipboard API (supports mobile and desktop)
-				try {
-					await navigator.clipboard.writeText(markdown);
-					this.showSuccessNotice(this.messages.notices.nodeTextCopied);
-					return true;
-				} catch {
-					// Fallback: use legacy method
-					return this.fallbackCopy(markdown);
-				}
-			} else {
-				// Fallback: use legacy method
-				return this.fallbackCopy(markdown);
-			}
+			// Use modern Clipboard API
+			await navigator.clipboard.writeText(markdown);
+			this.showSuccessNotice(this.messages.notices.nodeTextCopied);
+			return true;
 		} catch {
 			this.showErrorNotice(this.messages.notices.copyFailed);
 			return false;
@@ -172,58 +152,6 @@ export class ClipboardManager {
 	}
 
 	// ========== Private Methods ==========
-
-	/**
-	 * Fallback copy method (compatible with older browsers)
-	 *
-	 * Note: This uses the deprecated execCommand as a fallback for older browsers
-	 * that don't support the modern Clipboard API. The modern API is tried first
-	 * in copyNode(). This fallback is only used when:
-	 * - navigator.clipboard is not available (older browsers)
-	 * - window.isSecureContext is false (non-HTTPS contexts)
-	 * - The Clipboard API call throws an error
-	 */
-	private fallbackCopy(text: string): boolean {
-		const textArea = document.createElement("textarea");
-		textArea.value = text;
-
-		// Set styles using helper function for better maintainability
-		setCssProps(textArea, {
-			position: 'fixed',
-			top: '0',
-			left: '0',
-			width: '2em',
-			height: '2em',
-			padding: '0',
-			border: 'none',
-			outline: 'none',
-			boxShadow: 'none',
-			background: 'transparent',
-			opacity: '0',
-			pointerEvents: 'none'
-		});
-
-		document.body.appendChild(textArea);
-		textArea.focus();
-		textArea.select();
-
-		try {
-			// eslint-disable-next-line @typescript-eslint/no-deprecated
-			const successful = document.execCommand('copy');
-			if (successful) {
-				this.showSuccessNotice(this.messages.notices.nodeTextCopied);
-				return true;
-			} else {
-				this.showErrorNotice(this.messages.notices.copyFailed);
-				return false;
-			}
-		} catch {
-			this.showErrorNotice(this.messages.notices.copyFailed);
-			return false;
-		} finally {
-			document.body.removeChild(textArea);
-		}
-	}
 
 	/**
 	 * Paste subtree (markdown format)

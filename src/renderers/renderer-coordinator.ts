@@ -248,7 +248,7 @@ export class RendererCoordinator implements MindMapRenderer {
 		this.validateSelectionState();
 
 		// Declare outside try block so finally block can access it
-		let root: d3.HierarchyNode<any>;
+		let root: d3.HierarchyNode<MindMapNode>;
 
 		try {
 			// Clear container - use D3 method instead of innerHTML, preserve object references
@@ -291,7 +291,7 @@ export class RendererCoordinator implements MindMapRenderer {
 			// Immediately apply saved zoom state (prevent visual jump)
 			if (this.currentZoomTransform) {
 				svg.call((selection) => this.currentZoom.transform(selection, this.currentZoomTransform));
-				this.currentContent.attr("transform", this.currentZoomTransform as any);
+				this.currentContent.attr("transform", this.currentZoomTransform.toString());
 			}
 
 			// Offset (center offset, temporarily using 0)
@@ -405,7 +405,7 @@ export class RendererCoordinator implements MindMapRenderer {
 
 	// ========== Private Rendering Methods ==========
 
-	private renderLinks(root: d3.HierarchyNode<any>, offsetX: number, offsetY: number): void {
+	private renderLinks(root: d3.HierarchyNode<MindMapNode>, offsetX: number, offsetY: number): void {
 		// Use LinkRenderer to render links
 		this.linkRenderer.renderLinks(this.currentContent, root.links(), offsetX, offsetY);
 	}
@@ -438,7 +438,7 @@ export class RendererCoordinator implements MindMapRenderer {
 
 				return true; // Allow normal zoom behavior
 			})
-			.on('zoom', (event) => {
+			.on('zoom', (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
 				this.handleZoom(event);
 			});
 
@@ -449,9 +449,9 @@ export class RendererCoordinator implements MindMapRenderer {
 	}
 
 	private applyInitialViewPosition(
-		root: d3.HierarchyNode<any>,
+		root: d3.HierarchyNode<MindMapNode>,
 		svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-		zoom: d3.ZoomBehavior<any, unknown>,
+		zoom: d3.ZoomBehavior<SVGSVGElement, unknown>,
 		container: Element
 	): void {
 		// Key fix: Only apply initial position on first render
@@ -486,25 +486,25 @@ export class RendererCoordinator implements MindMapRenderer {
 
 	// ========== Event Handling ==========
 
-	private handleZoom(event: any): void {
+	private handleZoom(event: d3.D3ZoomEvent<SVGSVGElement, unknown>): void {
 		// Update content group transform
 		if (this.currentContent) {
-			this.currentContent.attr('transform', event.transform);
+			this.currentContent.attr('transform', event.transform.toString());
 		}
 		this.currentZoomTransform = event.transform;
 	}
 
 	// ========== RenderCallbacks Implementation ==========
 
-	private handleNodeSelected(node: d3.HierarchyNode<any>): void {
+	private handleNodeSelected(node: d3.HierarchyNode<MindMapNode>): void {
 		this.selectedNode = node;
 
 		// Render buttons
-		const nodeElement = d3.selectAll('.nodes g').filter((d: any) => d === node);
+		const nodeElement = d3.selectAll('.nodes g').filter((d: d3.HierarchyNode<MindMapNode>) => d === node);
 		const dimensions = this.textMeasurer.getNodeDimensions(node.depth, node.data.text);
 
-		this.buttonRenderer.renderPlusButton(nodeElement as any, node, dimensions);
-		this.aiAssistant.renderAIButton(nodeElement as any, node, dimensions);
+		this.buttonRenderer.renderPlusButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, node, dimensions);
+		this.aiAssistant.renderAIButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, node, dimensions);
 
 		// Mobile: show toolbar
 		if (this.config.isMobile && this.mobileToolbar && !this.nodeEditor.isEditing()) {
@@ -512,11 +512,11 @@ export class RendererCoordinator implements MindMapRenderer {
 		}
 	}
 
-	private handleNodeHovered(node: d3.HierarchyNode<any>): void {
+	private handleNodeHovered(node: d3.HierarchyNode<MindMapNode>): void {
 		this.hoveredNode = node;
 	}
 
-	private handleNodeLeft(node: d3.HierarchyNode<any>): void {
+	private handleNodeLeft(node: d3.HierarchyNode<MindMapNode>): void {
 		if (this.hoveredNode === node) {
 			this.hoveredNode = null;
 		}
@@ -531,10 +531,10 @@ export class RendererCoordinator implements MindMapRenderer {
 		}
 	}
 
-	private handleNodeDoubleClicked(node: d3.HierarchyNode<any>, event: MouseEvent): void {
+	private handleNodeDoubleClicked(node: d3.HierarchyNode<MindMapNode>, event: MouseEvent): void {
 		// Delegate to NodeEditor
 		const targetElement = d3.selectAll('.nodes g')
-			.filter((d: any) => d === node)
+			.filter((d: d3.HierarchyNode<MindMapNode>) => d === node)
 			.select('.node-unified-text')
 			.node() as HTMLDivElement;
 
@@ -543,7 +543,7 @@ export class RendererCoordinator implements MindMapRenderer {
 		}
 	}
 
-	private handleAddChildNode(node: d3.HierarchyNode<any>): void {
+	private handleAddChildNode(node: d3.HierarchyNode<MindMapNode>): void {
 		// Save snapshot (before modification)
 		if (this.currentData) {
 			this.undoManager.saveSnapshot(this.currentData);
@@ -569,7 +569,7 @@ export class RendererCoordinator implements MindMapRenderer {
 		}, 150);
 	}
 
-	private handleAddSiblingNode(node: d3.HierarchyNode<any>): void {
+	private handleAddSiblingNode(node: d3.HierarchyNode<MindMapNode>): void {
 		// Save snapshot (before modification)
 		if (this.currentData) {
 			this.undoManager.saveSnapshot(this.currentData);
@@ -600,7 +600,7 @@ export class RendererCoordinator implements MindMapRenderer {
 		}, 150);
 	}
 
-	private handleDeleteNode(node: d3.HierarchyNode<any>): void {
+	private handleDeleteNode(node: d3.HierarchyNode<MindMapNode>): void {
 		// Save snapshot (before modification)
 		if (this.currentData) {
 			this.undoManager.saveSnapshot(this.currentData);
@@ -613,11 +613,11 @@ export class RendererCoordinator implements MindMapRenderer {
 		}
 	}
 
-	private async handleCopyNode(node: d3.HierarchyNode<any>): Promise<void> {
+	private async handleCopyNode(node: d3.HierarchyNode<MindMapNode>): Promise<void> {
 		await this.clipboardManager.copyNode(node);
 	}
 
-	private async handleCutNode(node: d3.HierarchyNode<any>): Promise<void> {
+	private async handleCutNode(node: d3.HierarchyNode<MindMapNode>): Promise<void> {
 		// Save snapshot (before modification)
 		if (this.currentData) {
 			this.undoManager.saveSnapshot(this.currentData);
@@ -626,7 +626,7 @@ export class RendererCoordinator implements MindMapRenderer {
 		await this.clipboardManager.cutNode(node);
 	}
 
-	private async handlePasteToNode(node: d3.HierarchyNode<any>): Promise<void> {
+	private async handlePasteToNode(node: d3.HierarchyNode<MindMapNode>): Promise<void> {
 		// Save snapshot (before modification)
 		if (this.currentData) {
 			this.undoManager.saveSnapshot(this.currentData);
@@ -653,9 +653,9 @@ export class RendererCoordinator implements MindMapRenderer {
 
 	// ========== Helper Methods ==========
 
-	private enterEditModeForNode(node: d3.HierarchyNode<any>): void {
+	private enterEditModeForNode(node: d3.HierarchyNode<MindMapNode>): void {
 		const targetElement = d3.selectAll('.nodes g')
-			.filter((d: any) => d.data === node.data)
+			.filter((d: d3.HierarchyNode<MindMapNode>) => d.data === node.data)
 			.select('.node-unified-text')
 			.node() as HTMLDivElement;
 
@@ -664,14 +664,14 @@ export class RendererCoordinator implements MindMapRenderer {
 		}
 	}
 
-	private selectNode(node: d3.HierarchyNode<any>): void {
+	private selectNode(node: d3.HierarchyNode<MindMapNode>): void {
 		// Set selection state
 		this.selectedNode = node;
 		node.data.selected = true;
 
 		// Add visual selection effect
 		d3.selectAll('.node-rect')
-			.filter((d: any) => d === node)
+			.filter((d: d3.HierarchyNode<MindMapNode>) => d === node)
 			.classed('selected-rect', true);
 	}
 
@@ -759,9 +759,9 @@ export class RendererCoordinator implements MindMapRenderer {
 	 * Calculate dynamic tree height
 	 * Calculate required tree height based on node count and depth, avoid node overlap
 	 */
-	private calculateDynamicTreeHeight(root: d3.HierarchyNode<any>): number {
+	private calculateDynamicTreeHeight(root: d3.HierarchyNode<MindMapNode>): number {
 		let maxDepth = 0;
-		const nodesAtDepth: Record<number, d3.HierarchyNode<any>[]> = {};
+		const nodesAtDepth: Record<number, d3.HierarchyNode<MindMapNode>[]> = {};
 
 		// Count nodes and max depth at each level
 		root.each(node => {
@@ -815,7 +815,7 @@ export class RendererCoordinator implements MindMapRenderer {
 	 * Calculate adaptive layer height
 	 * Calculate required height for a single layer of nodes
 	 */
-	private calculateAdaptiveLayerHeight(nodes: d3.HierarchyNode<any>[]): number {
+	private calculateAdaptiveLayerHeight(nodes: d3.HierarchyNode<MindMapNode>[]): number {
 		if (nodes.length === 0) return 60;
 
 		// Calculate max height of all nodes at this layer
@@ -875,9 +875,9 @@ export class RendererCoordinator implements MindMapRenderer {
 	 * Sync selected node reference
 	 * After re-render, update selectedNode reference to new D3 hierarchy
 	 */
-	private syncSelectedNodeReference(root: d3.HierarchyNode<any>): void {
+	private syncSelectedNodeReference(root: d3.HierarchyNode<MindMapNode>): void {
 		let targetNode: MindMapNode | null = null;
-		let foundNode: d3.HierarchyNode<any> | null = null;
+		let foundNode: d3.HierarchyNode<MindMapNode> | null = null;
 
 		// Strategy 1: If there's currently a selected node, try to sync its reference
 		if (this.selectedNode && this.selectedNode.data) {
@@ -923,14 +923,14 @@ export class RendererCoordinator implements MindMapRenderer {
 
 		// Iterate all nodes, restore buttons for selected nodes
 		this.currentSvg.selectAll(".node")
-			.each((d: any, i, nodes) => {
+			.each((d: d3.HierarchyNode<MindMapNode>, i, nodes) => {
 				if (d.data.selected) {
 					const nodeElement = d3.select(nodes[i] as SVGGElement);
 					const dimensions = this.textMeasurer.getNodeDimensions(d.depth, d.data.text);
 
 					// Call feature module methods
-					this.buttonRenderer.renderPlusButton(nodeElement as any, d, dimensions);
-					this.aiAssistant.renderAIButton(nodeElement as any, d, dimensions);
+					this.buttonRenderer.renderPlusButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, d, dimensions);
+					this.aiAssistant.renderAIButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, d, dimensions);
 				}
 			});
 	}
@@ -955,8 +955,8 @@ export class RendererCoordinator implements MindMapRenderer {
 
 				// Also update content group transform
 				if (this.currentContent) {
-					// Type assertion: D3 accepts ZoomTransform for attr("transform", ...)
-					this.currentContent.attr("transform", this.currentZoomTransform as any);
+					// Convert ZoomTransform to string for transform attribute
+					this.currentContent.attr("transform", this.currentZoomTransform.toString());
 				}
 			}
 		}
@@ -975,7 +975,7 @@ export class RendererCoordinator implements MindMapRenderer {
 		// Find DOM element through D3 node object comparison (not data object comparison)
 		const nodeElements = d3.selectAll(".nodes g");
 		const targetElement = nodeElements
-			.filter((d: any) => d === this.selectedNode)
+			.filter((d: d3.HierarchyNode<MindMapNode>) => d === this.selectedNode)
 			.select(".node-unified-text")
 			.node() as HTMLDivElement;
 

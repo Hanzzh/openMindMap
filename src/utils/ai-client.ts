@@ -20,6 +20,29 @@ export interface TestConnectionResult {
 	message: string;
 }
 
+/**
+ * OpenAI-compatible API response structure
+ */
+interface OpenAIResponse {
+	choices?: Array<{
+		message?: {
+			content?: string;
+			reasoning_content?: string;
+		};
+		finish_reason?: string;
+	}>;
+	usage?: {
+		prompt_tokens?: number;
+		completion_tokens?: number;
+		total_tokens?: number;
+	};
+	error?: {
+		message: string;
+		code?: string | number;
+		type?: string;
+	};
+}
+
 export class AIClient {
 	private config: AIConfiguration;
 
@@ -77,7 +100,7 @@ export class AIClient {
 
 
 			if (response.status >= 200 && response.status < 300) {
-				const data = response.json;
+				const data = response.json as OpenAIResponse;
 
 				// Validate response structure
 				try {
@@ -101,7 +124,7 @@ export class AIClient {
 				let errorDetails = '';
 
 				try {
-					const errorData = response.json;
+					const errorData = response.json as OpenAIResponse;
 					if (errorData.error?.message) {
 						errorMessage = errorData.error.message;
 					}
@@ -188,7 +211,7 @@ export class AIClient {
 			let errorDetails = '';
 
 			try {
-				const errorData = response.json;
+				const errorData = response.json as OpenAIResponse;
 				if (errorData.error?.message) {
 					errorMessage = errorData.error.message;
 				}
@@ -219,7 +242,7 @@ export class AIClient {
 			throw new Error(`API request failed: ${errorMessage}${errorDetails}`);
 		}
 
-		const data = response.json;
+		const data = response.json as OpenAIResponse;
 
 		// Validate response structure
 		const content = this.validateAPIResponseStructure(data, 'chat');
@@ -299,9 +322,9 @@ export class AIClient {
 			// Try to extract JSON array from response
 			const jsonMatch = response.match(/\[[\s\S]*\]/);
 			if (jsonMatch) {
-				const parsed = JSON.parse(jsonMatch[0]);
+				const parsed = JSON.parse(jsonMatch[0]) as unknown[];
 				if (Array.isArray(parsed)) {
-					return parsed.filter(item => typeof item === 'string' && item.trim().length > 0);
+					return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
 				}
 			}
 

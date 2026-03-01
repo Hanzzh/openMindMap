@@ -24,7 +24,9 @@
 
 import * as d3 from 'd3';
 import { Notice } from 'obsidian';
-import { MindMapNode } from '../interfaces/mindmap-interfaces';
+import { MindMapNode, NodeDimensions } from '../interfaces/mindmap-interfaces';
+import { MindMapService } from '../services/mindmap-service';
+import { MindMapMessages } from '../i18n/types';
 
 /**
  * AI Assistant callback interface
@@ -34,14 +36,6 @@ export interface AIAssistantCallbacks {
 	 * Called after node is successfully created, used to refresh rendering
 	 */
 	onNodeCreated?: () => void;
-}
-
-/**
- * Node dimensions interface (simplified version)
- */
-export interface NodeDimensions {
-	width: number;
-	height: number;
 }
 
 /**
@@ -57,11 +51,11 @@ export class AIAssistant {
 	private loadingNotice: Notice | null = null;
 
 	// Dependencies
-	private mindMapService: any;
-	private messages: any;
+	private mindMapService: MindMapService;
+	private messages: MindMapMessages;
 	private callbacks: AIAssistantCallbacks;
 
-	constructor(mindMapService: any, messages: any, callbacks: AIAssistantCallbacks) {
+	constructor(mindMapService: MindMapService, messages: MindMapMessages, callbacks: AIAssistantCallbacks) {
 		this.mindMapService = mindMapService;
 		this.messages = messages;
 		this.callbacks = callbacks;
@@ -203,7 +197,7 @@ export class AIAssistant {
 
 			const errorMsg = this.messages.format(
 				this.messages.notices.aiFailed,
-				{ error: error.message }
+				{ error: error instanceof Error ? error.message : String(error) }
 			);
 			new Notice(errorMsg);
 		}
@@ -375,7 +369,7 @@ export class AIAssistant {
 		} catch (error) {
 			new Notice(this.messages.format(
 				this.messages.notices.nodeCreateFailed || `Failed to create node: {error}`,
-				{ error: error.message }
+				{ error: error instanceof Error ? error.message : String(error) }
 			));
 		}
 	}

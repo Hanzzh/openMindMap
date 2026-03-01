@@ -5709,7 +5709,7 @@ var AIAssistant = class {
       this.loadingNotice = null;
       const errorMsg = this.messages.format(
         this.messages.notices.aiFailed,
-        { error: error.message }
+        { error: error instanceof Error ? error.message : String(error) }
       );
       new import_obsidian.Notice(errorMsg);
     }
@@ -5831,7 +5831,7 @@ var AIAssistant = class {
     } catch (error) {
       new import_obsidian.Notice(this.messages.format(
         this.messages.notices.nodeCreateFailed || `Failed to create node: {error}`,
-        { error: error.message }
+        { error: error instanceof Error ? error.message : String(error) }
       ));
     }
   }
@@ -6093,9 +6093,6 @@ var NodeEditor = class {
 
 // src/features/ClipboardManager.ts
 var import_obsidian3 = require("obsidian");
-function setCssProps2(element, props) {
-  Object.assign(element.style, props);
-}
 var ClipboardManager = class {
   constructor(mindMapService, messages, callbacks = {}) {
     this.mindMapService = mindMapService;
@@ -6111,17 +6108,9 @@ var ClipboardManager = class {
   async copyNode(node) {
     try {
       const markdown = this.mindMapService.serializeSubtreeToMarkdown(node.data);
-      if (navigator.clipboard && window.isSecureContext) {
-        try {
-          await navigator.clipboard.writeText(markdown);
-          this.showSuccessNotice(this.messages.notices.nodeTextCopied);
-          return true;
-        } catch (e) {
-          return this.fallbackCopy(markdown);
-        }
-      } else {
-        return this.fallbackCopy(markdown);
-      }
+      await navigator.clipboard.writeText(markdown);
+      this.showSuccessNotice(this.messages.notices.nodeTextCopied);
+      return true;
     } catch (e) {
       this.showErrorNotice(this.messages.notices.copyFailed);
       return false;
@@ -6178,52 +6167,6 @@ var ClipboardManager = class {
   }
   // ========== Private Methods ==========
   /**
-   * Fallback copy method (compatible with older browsers)
-   *
-   * Note: This uses the deprecated execCommand as a fallback for older browsers
-   * that don't support the modern Clipboard API. The modern API is tried first
-   * in copyNode(). This fallback is only used when:
-   * - navigator.clipboard is not available (older browsers)
-   * - window.isSecureContext is false (non-HTTPS contexts)
-   * - The Clipboard API call throws an error
-   */
-  fallbackCopy(text) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    setCssProps2(textArea, {
-      position: "fixed",
-      top: "0",
-      left: "0",
-      width: "2em",
-      height: "2em",
-      padding: "0",
-      border: "none",
-      outline: "none",
-      boxShadow: "none",
-      background: "transparent",
-      opacity: "0",
-      pointerEvents: "none"
-    });
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      const successful = document.execCommand("copy");
-      if (successful) {
-        this.showSuccessNotice(this.messages.notices.nodeTextCopied);
-        return true;
-      } else {
-        this.showErrorNotice(this.messages.notices.copyFailed);
-        return false;
-      }
-    } catch (e) {
-      this.showErrorNotice(this.messages.notices.copyFailed);
-      return false;
-    } finally {
-      document.body.removeChild(textArea);
-    }
-  }
-  /**
    * Paste subtree (markdown format)
    */
   pasteSubtree(node, clipboardText) {
@@ -6271,7 +6214,7 @@ var ClipboardManager = class {
 
 // src/features/ButtonRenderer.ts
 var ButtonRenderer = class {
-  constructor(mindMapService, textMeasurer, callbacks) {
+  constructor(_mindMapService, textMeasurer, callbacks) {
     this.textMeasurer = textMeasurer;
     this.callbacks = callbacks;
   }
@@ -7073,7 +7016,7 @@ var RendererCoordinator = class {
       if (currentTransform.toString() !== this.currentZoomTransform.toString()) {
         this.currentSvg.call((selection2) => this.currentZoom.transform(selection2, this.currentZoomTransform));
         if (this.currentContent) {
-          this.currentContent.attr("transform", this.currentZoomTransform);
+          this.currentContent.attr("transform", this.currentZoomTransform.toString());
         }
       }
     }
@@ -7581,7 +7524,8 @@ var en = {
   // ==================== Helper Methods ====================
   format(message, params) {
     return message.replace(/\{(\w+)\}/g, (match, key) => {
-      return params[key] !== void 0 ? String(params[key]) : match;
+      const value = params[key];
+      return value !== void 0 ? String(value) : match;
     });
   }
 };
@@ -7738,7 +7682,8 @@ var zh = {
   // ==================== Helper Methods ====================
   format(message, params) {
     return message.replace(/\{(\w+)\}/g, (match, key) => {
-      return params[key] !== void 0 ? String(params[key]) : match;
+      const value = params[key];
+      return value !== void 0 ? String(value) : match;
     });
   }
 };
@@ -7816,7 +7761,8 @@ var I18nManager = class {
    */
   replaceParams(message, params) {
     return message.replace(/\{(\w+)\}/g, (match, key) => {
-      return params[key] !== void 0 ? String(params[key]) : match;
+      const value = params[key];
+      return value !== void 0 ? String(value) : match;
     });
   }
 };
@@ -9234,7 +9180,7 @@ var MindMapPlugin = class extends import_obsidian7.Plugin {
     } catch (error) {
       const message = this.messages.format(
         this.messages.notices.fileCreateError,
-        { error: error.message }
+        { error: error instanceof Error ? error.message : String(error) }
       );
       new import_obsidian7.Notice(message);
     }
@@ -9332,9 +9278,9 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
     container.addClass("mind-map-container");
     container.createEl("h4", { text: "Loading mind map..." });
     container.createEl("p", { text: "Initializing..." });
-    this.renderer.onTextChanged = this.handleNodeTextChanged.bind(this);
-    this.renderer.onDataUpdated = this.handleDataUpdated.bind(this);
-    this.renderer.onDataRestored = this.handleDataRestored.bind(this);
+    this.renderer.onTextChanged = (node, newText) => this.handleNodeTextChanged(node, newText);
+    this.renderer.onDataUpdated = () => this.handleDataUpdated();
+    this.renderer.onDataRestored = (data) => this.handleDataRestored(data);
     this.clearHistory();
     this.needsContentLoading = true;
     if (this.filePath) {
@@ -9345,7 +9291,7 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
     var _a, _b;
     const container = this.containerEl.children[1];
     container.empty();
-    container.createEl("h4", { text: "\u{1F9E0} Mind map" });
+    container.createEl("h4", { text: "\u{1F9E0} mind map" });
     const statusEl = container.createEl("p", { text: "Loading file..." });
     let filePath = this.filePath;
     if (!filePath) {
@@ -9397,19 +9343,20 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
         statusEl.textContent = `Error: File not found: ${this.filePath}`;
       }
     } catch (error) {
-      statusEl.textContent = `Error loading file: ${error.message}`;
+      statusEl.textContent = `Error loading file: ${error instanceof Error ? error.message : String(error)}`;
       const errorDiv = container.createDiv("mind-map-error");
       errorDiv.createEl("strong", { text: "Error:" });
       errorDiv.createEl("br");
-      errorDiv.createSpan({ text: error.message });
+      errorDiv.createSpan({ text: error instanceof Error ? error.message : String(error) });
     }
   }
-  async renderMindMap(content) {
+  renderMindMap(content) {
     const container = this.containerEl.children[1];
     container.empty();
     const mindMapData = this.mindMapService.parseMarkdownToData(content, this.filePath || "");
     this.mindMapData = mindMapData;
     this.renderer.render(container, mindMapData);
+    return Promise.resolve();
   }
   // 处理节点文本变化（带防抖优化）
   handleNodeTextChanged(node, newText) {
@@ -9490,7 +9437,7 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
       this.renderer.clearHistory();
     }
   }
-  async onClose() {
+  onClose() {
     if (this.updateTimer) {
       clearTimeout(this.updateTimer);
       this.updateTimer = null;
@@ -9498,6 +9445,7 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
     if (this.renderer) {
       this.renderer.destroy();
     }
+    return Promise.resolve();
   }
 };
 var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
@@ -9550,15 +9498,15 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
         new import_obsidian7.Notice(message);
       })();
     }));
-    new import_obsidian7.Setting(containerEl).setName("AI configuration (OpenAI-compatible API)").setHeading();
+    new import_obsidian7.Setting(containerEl).setName("AI configuration").setHeading();
     containerEl.createEl("p", {
       text: "Configure your AI API to enable intelligent features like automatic node suggestions.",
       cls: "setting-item-description"
     });
     const securityNotice = containerEl.createDiv({ cls: "setting-item-security-notice" });
-    securityNotice.createEl("strong", { text: "\u{1F512} Security:" });
-    securityNotice.appendText(" Your API key is encrypted using AES-GCM (256-bit) before storage. ");
-    const codeEl = securityNotice.createEl("code", { text: "data.json" });
+    securityNotice.createEl("strong", { text: "\u{1F512} security:" });
+    securityNotice.appendText(" Your api key is encrypted using AES-GCM (256-bit) before storage. ");
+    const codeEl = securityNotice.createEl("code", { text: "Data.json" });
     securityNotice.appendText(" The encrypted key is stored in ");
     securityNotice.appendChild(codeEl.cloneNode(true));
     securityNotice.appendText(" and can only be decrypted on this device.");
@@ -9568,7 +9516,7 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
         await this.plugin.saveSettings();
       })();
     }));
-    new import_obsidian7.Setting(containerEl).setName("OpenAI API key").setDesc("Your OpenAI API key (starts with sk-...)").addText((text) => {
+    new import_obsidian7.Setting(containerEl).setName("API key").setDesc("Your API key").addText((text) => {
       text.setPlaceholder("sk-...");
       text.setValue(this.plugin.settings.openaiApiKey);
       text.inputEl.type = "password";

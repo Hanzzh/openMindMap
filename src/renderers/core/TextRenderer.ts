@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import { MindMapNode, NodeDimensions } from '../../interfaces/mindmap-interfaces';
+import { MindMapNode } from '../../interfaces/mindmap-interfaces';
 import { TextMeasurer } from '../../utils/TextMeasurer';
 import { MindMapConfig } from '../../config/types';
 import { EditingState } from '../../interfaces/mindmap-interfaces';

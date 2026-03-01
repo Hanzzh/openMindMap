@@ -95,13 +95,13 @@ export class InteractionManager {
 
 		// 初始化鼠标交互模块
 		const mouseCallbacks: MouseInteractionCallbacks = {
-			onNodeSelect: this.handleNodeSelect.bind(this),
-			onNodeDoubleClick: this.handleNodeDoubleClick.bind(this),
-			onNodeHover: this.handleNodeHover.bind(this),
-			onNodeLeave: this.handleNodeLeave.bind(this),
-			onCanvasClick: this.handleCanvasClick.bind(this),
-			onCanvasDrag: this.handleCanvasDrag.bind(this),
-			isCanvasInteractionEnabled: this.isCanvasInteractionEnabled.bind(this),
+			onNodeSelect: (node) => this.handleNodeSelect(node),
+			onNodeDoubleClick: (node, event) => this.handleNodeDoubleClick(node, event),
+			onNodeHover: (node) => this.handleNodeHover(node),
+			onNodeLeave: (node) => this.handleNodeLeave(node),
+			onCanvasClick: (event) => this.handleCanvasClick(event),
+			onCanvasDrag: (event) => this.handleCanvasDrag(event),
+			isCanvasInteractionEnabled: () => this.isCanvasInteractionEnabled(),
 			isEditing: () => this.state.editingState.isEditing,
 			getEditingNode: () => this.state.editingState.currentNode
 		};
@@ -116,14 +116,14 @@ export class InteractionManager {
 		};
 
 		const keyboardHandlers: KeyboardHandlers = {
-			onTab: this.handleTabKey.bind(this),
-			onDelete: this.handleDeleteKey.bind(this),
-			onEnter: this.handleEnterKey.bind(this),
-			onCopy: this.handleCopyShortcut.bind(this),
-			onCut: this.handleCutShortcut.bind(this),
-			onPaste: this.handlePasteShortcut.bind(this),
-			onUndo: this.handleUndoShortcut.bind(this),
-			onRedo: this.handleRedoShortcut.bind(this)
+			onTab: (event) => this.handleTabKey(event),
+			onDelete: (event) => this.handleDeleteKey(event),
+			onEnter: (event) => this.handleEnterKey(event),
+			onCopy: (event) => this.handleCopyShortcut(event),
+			onCut: (event) => this.handleCutShortcut(event),
+			onPaste: (event) => this.handlePasteShortcut(event),
+			onUndo: () => this.handleUndoShortcut(),
+			onRedo: () => this.handleRedoShortcut()
 		};
 		this.keyboardManager = new KeyboardManager(keyboardConfig, keyboardHandlers);
 	}

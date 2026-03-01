@@ -97,7 +97,8 @@ export class I18nManager {
 	 */
 	private replaceParams(message: string, params: Record<string, string | number>): string {
 		return message.replace(/\{(\w+)\}/g, (match, key) => {
-			return params[key] !== undefined ? String(params[key]) : match;
+			const value = params[key as keyof typeof params];
+			return value !== undefined ? String(value) : match;
 		});
 	}
 }

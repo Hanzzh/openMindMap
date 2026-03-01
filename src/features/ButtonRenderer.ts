@@ -22,15 +22,9 @@
  */
 
 import * as d3 from 'd3';
-import { MindMapNode } from '../interfaces/mindmap-interfaces';
-
-/**
- * Node dimensions interface
- */
-export interface NodeDimensions {
-	width: number;
-	height: number;
-}
+import { MindMapNode, NodeDimensions } from '../interfaces/mindmap-interfaces';
+import { TextMeasurer } from '../utils/TextMeasurer';
+import { MindMapService } from '../services/mindmap-service';
 
 /**
  * Button Renderer callback interface
@@ -69,10 +63,10 @@ export interface ButtonRendererCallbacks {
  */
 export class ButtonRenderer {
 	// Dependencies
-	private textMeasurer: any;
+	private textMeasurer: TextMeasurer;
 	private callbacks: ButtonRendererCallbacks;
 
-	constructor(mindMapService: any, textMeasurer: any, callbacks: ButtonRendererCallbacks) {
+	constructor(_mindMapService: MindMapService, textMeasurer: TextMeasurer, callbacks: ButtonRendererCallbacks) {
 		this.textMeasurer = textMeasurer;
 		this.callbacks = callbacks;
 	}

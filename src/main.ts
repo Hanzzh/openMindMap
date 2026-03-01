@@ -212,7 +212,7 @@ export default class MindMapPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as MindMapSettings);
 
 		// Decrypt API key if encrypted
 		if (this.settings.openaiApiKey) {
@@ -389,7 +389,7 @@ export default class MindMapPlugin extends Plugin {
 		} catch (error) {
 			const message = this.messages.format(
 				this.messages.notices.fileCreateError,
-				{ error: error.message }
+				{ error: error instanceof Error ? error.message : String(error) }
 			);
 			new Notice(message);
 		}
@@ -540,9 +540,9 @@ class MindMapView extends ItemView {
 		container.createEl("p", { text: "Initializing..." });
 
 		// Set up callbacks for renderer
-		this.renderer.onTextChanged = this.handleNodeTextChanged.bind(this);
-		this.renderer.onDataUpdated = this.handleDataUpdated.bind(this);
-		this.renderer.onDataRestored = this.handleDataRestored.bind(this);
+		this.renderer.onTextChanged = (node, newText) => this.handleNodeTextChanged(node, newText);
+		this.renderer.onDataUpdated = () => this.handleDataUpdated();
+		this.renderer.onDataRestored = (data) => this.handleDataRestored(data);
 
 		// 清空历史记录（加载新视图时）
 		this.clearHistory();
@@ -561,8 +561,7 @@ class MindMapView extends ItemView {
 		container.empty();
 
 		// Show loading status
-		// eslint-disable-next-line obsidianmd/ui/sentence-case
-		container.createEl("h4", { text: "🧠 Mind map" });
+		container.createEl("h4", { text: "🧠 mind map" });
 		const statusEl = container.createEl("p", { text: "Loading file..." });
 
 		// Try to get file path from multiple sources
@@ -636,16 +635,16 @@ class MindMapView extends ItemView {
 				statusEl.textContent = `Error: File not found: ${this.filePath}`;
 			}
 		} catch (error) {
-			statusEl.textContent = `Error loading file: ${error.message}`;
+			statusEl.textContent = `Error loading file: ${error instanceof Error ? error.message : String(error)}`;
 
 			const errorDiv = container.createDiv("mind-map-error");
 			errorDiv.createEl("strong", { text: "Error:" });
 			errorDiv.createEl("br");
-			errorDiv.createSpan({ text: error.message });
+			errorDiv.createSpan({ text: error instanceof Error ? error.message : String(error) });
 		}
 	}
 
-	async renderMindMap(content: string): Promise<void> {
+	renderMindMap(content: string): Promise<void> {
 		const container = this.containerEl.children[1];
 		container.empty();
 
@@ -657,6 +656,8 @@ class MindMapView extends ItemView {
 
 		// 渲染层：使用渲染器进行可视化
 		this.renderer.render(container, mindMapData);
+
+		return Promise.resolve();
 	}
 
 	
@@ -783,7 +784,7 @@ class MindMapView extends ItemView {
 	}
 
 
-	async onClose(): Promise<void> {
+	onClose(): Promise<void> {
 		// 清理防抖定时器
 		if (this.updateTimer) {
 			clearTimeout(this.updateTimer);
@@ -797,6 +798,8 @@ class MindMapView extends ItemView {
 		}
 
 		// Note: Edit state is automatically cleaned up by NodeEditor internally
+
+		return Promise.resolve();
 	}
 }
 
@@ -813,7 +816,7 @@ class MindMapSettingTab extends PluginSettingTab {
 	hide(): void {
 		// Clean up event listener when settings tab is hidden
 		if (this.testButton && this.testButtonHandler) {
-			// eslint-disable-next-line @typescript-eslint/no-misused-promises
+			// eslint-disable-next-line @typescript-eslint/no-misused-promises -- async handler is intentionally used as event listener
 			this.testButton.removeEventListener('click', this.testButtonHandler);
 			this.testButton = null;
 			this.testButtonHandler = null;
@@ -825,7 +828,7 @@ class MindMapSettingTab extends PluginSettingTab {
 
 		// Clean up previous event listener
 		if (this.testButton && this.testButtonHandler) {
-			// eslint-disable-next-line @typescript-eslint/no-misused-promises
+			// eslint-disable-next-line @typescript-eslint/no-misused-promises -- async handler is intentionally used as event listener
 			this.testButton.removeEventListener('click', this.testButtonHandler);
 			this.testButton = null;
 			this.testButtonHandler = null;
@@ -899,8 +902,7 @@ class MindMapSettingTab extends PluginSettingTab {
 		// ====================
 		// AI Configuration
 		// ====================
-		// eslint-disable-next-line obsidianmd/ui/sentence-case
-		new Setting(containerEl).setName('AI configuration (OpenAI-compatible API)').setHeading();
+		new Setting(containerEl).setName('AI configuration').setHeading();
 		containerEl.createEl('p', {
 			text: 'Configure your AI API to enable intelligent features like automatic node suggestions.',
 			cls: 'setting-item-description'
@@ -908,18 +910,16 @@ class MindMapSettingTab extends PluginSettingTab {
 
 		// Security notice
 		const securityNotice = containerEl.createDiv({ cls: 'setting-item-security-notice' });
-		// eslint-disable-next-line obsidianmd/ui/sentence-case
-		securityNotice.createEl('strong', { text: '🔒 Security:' });
-		securityNotice.appendText(' Your API key is encrypted using AES-GCM (256-bit) before storage. ');
-		// eslint-disable-next-line obsidianmd/ui/sentence-case
-		const codeEl = securityNotice.createEl('code', { text: 'data.json' });
+		securityNotice.createEl('strong', { text: '🔒 security:' });
+		securityNotice.appendText(' Your api key is encrypted using AES-GCM (256-bit) before storage. ');
+		const codeEl = securityNotice.createEl('code', { text: 'Data.json' });
 		securityNotice.appendText(' The encrypted key is stored in ');
 		securityNotice.appendChild(codeEl.cloneNode(true));
 		securityNotice.appendText(' and can only be decrypted on this device.');
 
 		// API Base URL
 		new Setting(containerEl)
-			.setName('OpenAI API base URL') // eslint-disable-line obsidianmd/ui/sentence-case
+			.setName('OpenAI API base URL')
 			.setDesc('The base URL for your OpenAI-compatible API (e.g., https://api.openai.com/v1)')
 			.addText(text => text
 				.setPlaceholder('https://api.openai.com/v1')
@@ -933,10 +933,9 @@ class MindMapSettingTab extends PluginSettingTab {
 
 		// API Key
 		new Setting(containerEl)
-			.setName('OpenAI API key') // eslint-disable-line obsidianmd/ui/sentence-case
-			.setDesc('Your OpenAI API key (starts with sk-...)') // eslint-disable-line obsidianmd/ui/sentence-case
+			.setName('API key')
+			.setDesc('Your API key')
 			.addText(text => {
-				// eslint-disable-next-line obsidianmd/ui/sentence-case
 				text.setPlaceholder('sk-...');
 				text.setValue(this.plugin.settings.openaiApiKey);
 				text.inputEl.type = 'password'; // Set input type to password
@@ -959,7 +958,7 @@ class MindMapSettingTab extends PluginSettingTab {
 			.setName('Model name')
 			.setDesc('The model name to use (e.g., gpt-3.5-turbo, gpt-4, llama2, mistral, etc.)')
 			.addText(text => text
-				.setPlaceholder('gpt-3.5-turbo') // eslint-disable-line obsidianmd/ui/sentence-case
+				.setPlaceholder('gpt-3.5-turbo')
 				.setValue(this.plugin.settings.openaiModel)
 				.onChange((value: string) => {
 					void (async () => {
@@ -1047,7 +1046,7 @@ class MindMapSettingTab extends PluginSettingTab {
 			}
 		};
 
-		// eslint-disable-next-line @typescript-eslint/no-misused-promises
+		// eslint-disable-next-line @typescript-eslint/no-misused-promises -- async handler is intentionally used as event listener
 		this.testButton.addEventListener('click', this.testButtonHandler);
 
 		// AI Prompts Configuration
