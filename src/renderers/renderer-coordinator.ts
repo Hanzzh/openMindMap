@@ -922,7 +922,8 @@ export class RendererCoordinator implements MindMapRenderer {
 		if (!this.currentSvg) return;
 
 		// Iterate all nodes, restore buttons for selected nodes
-		this.currentSvg.selectAll(".node")
+		// Note: Nodes are <g> elements inside .nodes container, not .node class
+		this.currentSvg.selectAll(".nodes g")
 			.each((d: d3.HierarchyNode<MindMapNode>, i, nodes) => {
 				if (d.data.selected) {
 					const nodeElement = d3.select(nodes[i] as SVGGElement);
@@ -931,6 +932,10 @@ export class RendererCoordinator implements MindMapRenderer {
 					// Call feature module methods
 					this.buttonRenderer.renderPlusButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, d, dimensions);
 					this.aiAssistant.renderAIButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, d, dimensions);
+
+					// Synchronize InteractionManager state with RendererCoordinator state
+					// This ensures KeyboardManager gets the correct selected node
+					this.interactionManager['state'].selectedNode = d;
 				}
 			});
 	}

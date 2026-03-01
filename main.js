@@ -5359,13 +5359,13 @@ var InteractionManager = class {
       }
     };
     const mouseCallbacks = {
-      onNodeSelect: this.handleNodeSelect.bind(this),
-      onNodeDoubleClick: this.handleNodeDoubleClick.bind(this),
-      onNodeHover: this.handleNodeHover.bind(this),
-      onNodeLeave: this.handleNodeLeave.bind(this),
-      onCanvasClick: this.handleCanvasClick.bind(this),
-      onCanvasDrag: this.handleCanvasDrag.bind(this),
-      isCanvasInteractionEnabled: this.isCanvasInteractionEnabled.bind(this),
+      onNodeSelect: (node) => this.handleNodeSelect(node),
+      onNodeDoubleClick: (node, event) => this.handleNodeDoubleClick(node, event),
+      onNodeHover: (node) => this.handleNodeHover(node),
+      onNodeLeave: (node) => this.handleNodeLeave(node),
+      onCanvasClick: (event) => this.handleCanvasClick(event),
+      onCanvasDrag: (event) => this.handleCanvasDrag(event),
+      isCanvasInteractionEnabled: () => this.isCanvasInteractionEnabled(),
       isEditing: () => this.state.editingState.isEditing,
       getEditingNode: () => this.state.editingState.currentNode
     };
@@ -5377,14 +5377,14 @@ var InteractionManager = class {
       isActiveView: this.isActiveView
     };
     const keyboardHandlers = {
-      onTab: this.handleTabKey.bind(this),
-      onDelete: this.handleDeleteKey.bind(this),
-      onEnter: this.handleEnterKey.bind(this),
-      onCopy: this.handleCopyShortcut.bind(this),
-      onCut: this.handleCutShortcut.bind(this),
-      onPaste: this.handlePasteShortcut.bind(this),
-      onUndo: this.handleUndoShortcut.bind(this),
-      onRedo: this.handleRedoShortcut.bind(this)
+      onTab: (event) => this.handleTabKey(event),
+      onDelete: (event) => this.handleDeleteKey(event),
+      onEnter: (event) => this.handleEnterKey(event),
+      onCopy: (event) => this.handleCopyShortcut(event),
+      onCut: (event) => this.handleCutShortcut(event),
+      onPaste: (event) => this.handlePasteShortcut(event),
+      onUndo: () => this.handleUndoShortcut(),
+      onRedo: () => this.handleRedoShortcut()
     };
     this.keyboardManager = new KeyboardManager(keyboardConfig, keyboardHandlers);
   }
@@ -6595,7 +6595,7 @@ var RendererCoordinator = class {
       this.setupZoom(svg, container);
       if (this.currentZoomTransform) {
         svg.call((selection2) => this.currentZoom.transform(selection2, this.currentZoomTransform));
-        this.currentContent.attr("transform", this.currentZoomTransform);
+        this.currentContent.attr("transform", this.currentZoomTransform.toString());
       }
       const offsetX = 0;
       const offsetY = 0;
@@ -6718,7 +6718,7 @@ var RendererCoordinator = class {
   // ========== Event Handling ==========
   handleZoom(event) {
     if (this.currentContent) {
-      this.currentContent.attr("transform", event.transform);
+      this.currentContent.attr("transform", event.transform.toString());
     }
     this.currentZoomTransform = event.transform;
   }
@@ -6993,12 +6993,13 @@ var RendererCoordinator = class {
    */
   restoreSelectionUI() {
     if (!this.currentSvg) return;
-    this.currentSvg.selectAll(".node").each((d, i, nodes) => {
+    this.currentSvg.selectAll(".nodes g").each((d, i, nodes) => {
       if (d.data.selected) {
         const nodeElement = select_default2(nodes[i]);
         const dimensions = this.textMeasurer.getNodeDimensions(d.depth, d.data.text);
         this.buttonRenderer.renderPlusButton(nodeElement, d, dimensions);
         this.aiAssistant.renderAIButton(nodeElement, d, dimensions);
+        this.interactionManager["state"].selectedNode = d;
       }
     });
   }
