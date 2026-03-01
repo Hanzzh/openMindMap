@@ -105,7 +105,7 @@ export const en: MindMapMessages = {
 		// AI configuration
 		aiSection: 'AI configuration (OpenAI-compatible API)',
 		aiSectionDesc: 'Configure your AI API to enable intelligent features like automatic node suggestions.',
-		aiSecurity: '🔒 Security: Your API key is encrypted using AES-GCM (256-bit) before storage. The encrypted key is stored in data.json and can only be decrypted on this device.',
+		aiSecurity: '🔒 Security: your API key is encrypted using AES-GCM (256-bit) before storage. The encrypted key is stored in data.json and can only be decrypted on this device.',
 
 		aiBaseUrl: 'OpenAI API base URL',
 		aiBaseUrlDesc: 'The base URL for your OpenAI-compatible API (e.g., https://api.openai.com/v1)',
@@ -137,12 +137,12 @@ export const en: MindMapMessages = {
 		aiPromptTemplatePlaceholder: 'Please suggest 3-5 child nodes...',
 
 		aiPromptVariables: 'Available variables:',
-		aiPromptVariableNodeText: '{nodeText}: The text content of the current node',
-		aiPromptVariableLevel: '{level}: The hierarchy level of the current node (0=root, 1=first level, etc.)',
-		aiPromptVariableParent: '{parentContext}: Context from the parent node',
-		aiPromptVariableSiblings: '{siblingsContext}: Context from sibling nodes',
-		aiPromptVariableChildren: '{existingChildren}: Existing child nodes of the current node',
-		aiPromptVariableCentral: '{centralTopic}: The root/central topic of the mind map',
+		aiPromptVariableNodeText: '{nodeText}: the text content of the current node',
+		aiPromptVariableLevel: '{level}: the hierarchy level of the current node (0=root, 1=first level, etc.)',
+		aiPromptVariableParent: '{parentContext}: context from the parent node',
+		aiPromptVariableSiblings: '{siblingsContext}: context from sibling nodes',
+		aiPromptVariableChildren: '{existingChildren}: existing child nodes of the current node',
+		aiPromptVariableCentral: '{centralTopic}: the root/central topic of the mind map',
 
 		aiResetPrompts: 'Reset prompts',
 		aiResetPromptsDesc: 'Reset prompt templates to default values',
