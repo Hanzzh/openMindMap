@@ -3,6 +3,7 @@
 A powerful Obsidian plugin (openMindMap) that automatically renders Markdown files as interactive D3.js mind maps.
 
 ![demo](./assets/demo.png)
+![ai-suggestions](./assets/ai-suggestions.png)
 
 ## ⚡ Quick Start
 
