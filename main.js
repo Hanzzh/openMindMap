@@ -5363,8 +5363,8 @@ var InteractionManager = class {
       onNodeDoubleClick: (node, event) => this.handleNodeDoubleClick(node, event),
       onNodeHover: (node) => this.handleNodeHover(node),
       onNodeLeave: (node) => this.handleNodeLeave(node),
-      onCanvasClick: (event) => this.handleCanvasClick(event),
-      onCanvasDrag: (event) => this.handleCanvasDrag(event),
+      onCanvasClick: () => this.handleCanvasClick(),
+      onCanvasDrag: (dx, dy) => this.handleCanvasDrag(dx, dy),
       isCanvasInteractionEnabled: () => this.isCanvasInteractionEnabled(),
       isEditing: () => this.state.editingState.isEditing,
       getEditingNode: () => this.state.editingState.currentNode
@@ -5592,6 +5592,7 @@ var InteractionManager = class {
   async handleCopyShortcut(node) {
     var _a, _b;
     await ((_b = (_a = this.renderCallbacks).onCopyNode) == null ? void 0 : _b.call(_a, node));
+    return true;
   }
   /**
    * 处理剪切快捷键
@@ -5599,6 +5600,7 @@ var InteractionManager = class {
   async handleCutShortcut(node) {
     var _a, _b;
     await ((_b = (_a = this.renderCallbacks).onCutNode) == null ? void 0 : _b.call(_a, node));
+    return true;
   }
   /**
    * 处理粘贴快捷键
@@ -5606,6 +5608,7 @@ var InteractionManager = class {
   async handlePasteShortcut(node) {
     var _a, _b;
     await ((_b = (_a = this.renderCallbacks).onPasteToNode) == null ? void 0 : _b.call(_a, node));
+    return true;
   }
   /**
    * 处理撤销快捷键
@@ -7457,16 +7460,16 @@ var en = {
     languageChinese: "\u4E2D\u6587",
     // AI configuration
     aiSection: "AI configuration (OpenAI-compatible API)",
-    aiSectionDesc: "configure your AI API to enable intelligent features like automatic node suggestions.",
-    aiSecurity: "\u{1F512} security: your API key is encrypted using AES-GCM (256-bit) before storage. The encrypted key is stored in data.json and can only be decrypted on this device.",
+    aiSectionDesc: "Configure your AI API to enable intelligent features like automatic node suggestions.",
+    aiSecurity: "\u{1F512} Security: Your API key is encrypted using AES-GCM (256-bit) before storage. The encrypted key is stored in data.json and can only be decrypted on this device.",
     aiBaseUrl: "OpenAI API base URL",
     aiBaseUrlDesc: "The base URL for your OpenAI-compatible API (e.g., https://api.openai.com/v1)",
     aiBaseUrlPlaceholder: "https://api.openai.com/v1",
     aiApiKey: "OpenAI API key",
-    aiApiKeyDesc: "your OpenAI API key (starts with sk-...)",
+    aiApiKeyDesc: "Your OpenAI API key (starts with sk-...)",
     aiApiKeyPlaceholder: "sk-...",
     aiModel: "Model name",
-    aiModelDesc: "the model name to use (e.g., gpt-3.5-turbo, gpt-4, llama2, mistral, etc.)",
+    aiModelDesc: "The model name to use (e.g., gpt-3.5-turbo, gpt-4, llama2, mistral, etc.)",
     aiModelPlaceholder: "gpt-3.5-turbo",
     aiTestConnection: "Test connection",
     aiTestConnectionDesc: "Test your API configuration to ensure it works correctly",
@@ -7500,14 +7503,14 @@ var en = {
     // Loading
     loading: "Loading openMindMap...",
     // This is fine as it's the first word of the message
-    initializing: "initializing...",
-    loadingFile: "loading file...",
+    initializing: "Initializing...",
+    loadingFile: "Loading file...",
     // Headers
     appHeader: "\u{1F9E0} openMindMap",
-    debugInfo: "debug info:",
-    instanceFilePath: "instance file path:",
-    stateLoaded: "state loaded:",
-    activeFile: "active file:",
+    debugInfo: "Debug info:",
+    instanceFilePath: "Instance file path:",
+    stateLoaded: "State loaded:",
+    activeFile: "Active file:",
     // Context menu
     createNewFile: "New openMindMap file",
     // This is OK as first word of menu command
@@ -7526,7 +7529,7 @@ var en = {
     aiClose: "\u2715",
     // Edit hints (device-specific)
     editHintDesktop: "Double-click to edit | Enter: Save | Alt+Enter: New line | Escape: Cancel",
-    editHintMobile: "Tap to edit | Enter: new line | Tap outside to save"
+    editHintMobile: "Tap to edit | Enter: New line | Tap outside to save"
   },
   // ==================== Helper Methods ====================
   format(message, params) {
@@ -9523,7 +9526,7 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
         await this.plugin.saveSettings();
       })();
     }));
-    new import_obsidian7.Setting(containerEl).setName("API key").setDesc("your API key").addText((text) => {
+    new import_obsidian7.Setting(containerEl).setName("API key").setDesc("Your API key").addText((text) => {
       text.setPlaceholder("sk-...");
       text.setValue(this.plugin.settings.openaiApiKey);
       text.inputEl.type = "password";
@@ -9539,7 +9542,7 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
         })();
       });
     });
-    new import_obsidian7.Setting(containerEl).setName("Model name").setDesc("the model name to use (e.g., gpt-3.5-turbo, gpt-4, llama2, mistral, etc.)").addText((text) => text.setPlaceholder("gpt-3.5-turbo").setValue(this.plugin.settings.openaiModel).onChange((value) => {
+    new import_obsidian7.Setting(containerEl).setName("Model name").setDesc("The model name to use (e.g., gpt-3.5-turbo, gpt-4, llama2, mistral, etc.)").addText((text) => text.setPlaceholder("gpt-3.5-turbo").setValue(this.plugin.settings.openaiModel).onChange((value) => {
       void (async () => {
         this.plugin.settings.openaiModel = value;
         await this.plugin.saveSettings();

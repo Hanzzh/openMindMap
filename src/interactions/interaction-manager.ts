@@ -99,8 +99,8 @@ export class InteractionManager {
 			onNodeDoubleClick: (node, event) => this.handleNodeDoubleClick(node, event),
 			onNodeHover: (node) => this.handleNodeHover(node),
 			onNodeLeave: (node) => this.handleNodeLeave(node),
-			onCanvasClick: (event) => this.handleCanvasClick(event),
-			onCanvasDrag: (event) => this.handleCanvasDrag(event),
+			onCanvasClick: () => this.handleCanvasClick(),
+			onCanvasDrag: (dx, dy) => this.handleCanvasDrag(dx, dy),
 			isCanvasInteractionEnabled: () => this.isCanvasInteractionEnabled(),
 			isEditing: () => this.state.editingState.isEditing,
 			getEditingNode: () => this.state.editingState.currentNode
@@ -366,22 +366,25 @@ export class InteractionManager {
 	/**
 	 * 处理复制快捷键
 	 */
-	private async handleCopyShortcut(node: d3.HierarchyNode<MindMapNode>): Promise<void> {
+	private async handleCopyShortcut(node: d3.HierarchyNode<MindMapNode>): Promise<boolean> {
 		await this.renderCallbacks.onCopyNode?.(node);
+		return true;
 	}
 
 	/**
 	 * 处理剪切快捷键
 	 */
-	private async handleCutShortcut(node: d3.HierarchyNode<MindMapNode>): Promise<void> {
+	private async handleCutShortcut(node: d3.HierarchyNode<MindMapNode>): Promise<boolean> {
 		await this.renderCallbacks.onCutNode?.(node);
+		return true;
 	}
 
 	/**
 	 * 处理粘贴快捷键
 	 */
-	private async handlePasteShortcut(node: d3.HierarchyNode<MindMapNode>): Promise<void> {
+	private async handlePasteShortcut(node: d3.HierarchyNode<MindMapNode>): Promise<boolean> {
 		await this.renderCallbacks.onPasteToNode?.(node);
+		return true;
 	}
 
 	/**
