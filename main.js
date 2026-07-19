@@ -5162,8 +5162,13 @@ var TextRenderer = class _TextRenderer {
       logger.snapshotViewport("TextRenderer", "blur: fired", {
         contentEditable: textDivNode.contentEditable,
         isEditingElement: (editingState == null ? void 0 : editingState.editElement) === textDivNode,
-        textContent: (_a = textDivNode.textContent) == null ? void 0 : _a.slice(0, 50)
+        textContent: (_a = textDivNode.textContent) == null ? void 0 : _a.slice(0, 50),
+        isMobile: config == null ? void 0 : config.isMobile
       });
+      if (config == null ? void 0 : config.isMobile) {
+        logger.debug("TextRenderer", "blur: mobile mode, skipping auto-save");
+        return;
+      }
       if (textDivNode.contentEditable === "true" && (editingState == null ? void 0 : editingState.editElement) === textDivNode) {
         setTimeout(() => {
           var _a2;
@@ -6873,6 +6878,15 @@ var RendererCoordinator = class {
     this.currentZoom = null;
     this.currentZoomTransform = identity2;
     this.currentData = null;
+    // Container tracking for ResizeObserver-driven SVG sizing (Fix A1)
+    // SVG uses explicit pixel sizes instead of "100%" to avoid CSS-chain collapse
+    // when iPad soft keyboard shrinks .mind-map-container (SVG rendered height=0 bug).
+    this.currentContainer = null;
+    this.resizeObserver = null;
+    // Sticky maximum SVG size: never shrink below the initial-render dimensions
+    // so a transient container collapse (keyboard, layout reflow) cannot make nodes disappear.
+    this.stickySvgWidth = 0;
+    this.stickySvgHeight = 0;
     // View state
     this.isRendering = false;
     this.pendingRenderRequest = false;
@@ -7011,18 +7025,27 @@ var RendererCoordinator = class {
     try {
       logger.debug("RendererCoordinator", "render: about to clear container");
       select_default2(container).selectAll("*").remove();
-      const svg = select_default2(container).append("svg").attr("width", "100%").attr("height", "100%").style("position", "relative");
+      const containerRect = container.getBoundingClientRect();
+      const initialWidth = Math.max(containerRect.width, 1);
+      const initialHeight = Math.max(containerRect.height, 1);
+      this.stickySvgWidth = initialWidth;
+      this.stickySvgHeight = initialHeight;
+      this.currentContainer = container;
+      const svg = select_default2(container).append("svg").attr("width", initialWidth).attr("height", initialHeight).style("position", "relative").style("display", "block");
       this.currentSvg = svg;
+      this.attachContainerResizeObserver(container);
       logger.debugLazy("RendererCoordinator", "render: SVG created", () => {
         const svgEl = svg.node();
         if (!svgEl) return { svgCreated: false };
         const r = svgEl.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
+        const containerRect2 = container.getBoundingClientRect();
         return {
           svgRect: { width: r.width, height: r.height, top: r.top, left: r.left },
-          containerRect: { width: containerRect.width, height: containerRect.height, top: containerRect.top, left: containerRect.left },
+          containerRect: { width: containerRect2.width, height: containerRect2.height, top: containerRect2.top, left: containerRect2.left },
           svgWidth: svgEl.getAttribute("width"),
-          svgHeight: svgEl.getAttribute("height")
+          svgHeight: svgEl.getAttribute("height"),
+          stickyWidth: this.stickySvgWidth,
+          stickyHeight: this.stickySvgHeight
         };
       });
       this.currentContent = svg.append("g").attr("class", "mindmap-content");
@@ -7072,6 +7095,14 @@ var RendererCoordinator = class {
   destroy() {
     var _a;
     Logger.getInstance().debug("RendererCoordinator", "destroy: called");
+    if (this.resizeObserver) {
+      try {
+        this.resizeObserver.disconnect();
+      } catch (e) {
+      }
+      this.resizeObserver = null;
+    }
+    this.currentContainer = null;
     (_a = this.mobileToolbar) == null ? void 0 : _a.destroy();
     this.buttonRenderer.destroy();
     this.clipboardManager.destroy();
@@ -7083,6 +7114,52 @@ var RendererCoordinator = class {
       this.currentSvg = null;
     }
     this.currentContent = null;
+  }
+  // ========== SVG Sizing (Fix A1) ==========
+  /**
+   * Attach ResizeObserver to keep the SVG's explicit pixel width/height in sync
+   * with the container. Uses a sticky maximum: the SVG never shrinks below the
+   * size seen so far. This guards against the iPad soft-keyboard reflow bug
+   * where .mind-map-container transiently reports height=0 and the SVG (with
+   * "100%" sizing) rendered at 0 px, making all nodes disappear.
+   */
+  attachContainerResizeObserver(container) {
+    if (this.resizeObserver) {
+      try {
+        this.resizeObserver.disconnect();
+      } catch (e) {
+      }
+      this.resizeObserver = null;
+    }
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+    this.resizeObserver = new ResizeObserver((entries) => {
+      if (!this.currentSvg) return;
+      const entry = entries[0];
+      if (!entry) return;
+      const cr = entry.contentRect;
+      const nextW = Math.max(this.stickySvgWidth, cr.width);
+      const nextH = Math.max(this.stickySvgHeight, cr.height);
+      const changed = nextW !== this.stickySvgWidth || nextH !== this.stickySvgHeight;
+      this.stickySvgWidth = nextW;
+      this.stickySvgHeight = nextH;
+      if (changed) {
+        this.currentSvg.attr("width", nextW).attr("height", nextH);
+      }
+      Logger.getInstance().debug("RendererCoordinator", "ResizeObserver: container resize", {
+        containerW: cr.width,
+        containerH: cr.height,
+        appliedW: nextW,
+        appliedH: nextH,
+        changed
+      });
+    });
+    try {
+      this.resizeObserver.observe(container);
+    } catch (err) {
+      Logger.getInstance().warn("RendererCoordinator", "ResizeObserver.observe failed", err);
+    }
   }
   // ========== Public Methods (Compatibility Interface) ==========
   /**

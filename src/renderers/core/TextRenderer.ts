@@ -255,14 +255,31 @@ export class TextRenderer {
 
 		// blur: 自动保存
 		// 调试重点：iPad 键盘弹出可能触发瞬态 blur，需记录 blur 瞬间与 150ms 后的状态对比
+		//
+		// Fix B1: 移动端不在 blur 上自动保存。
+		// iPad 软键盘弹出会强制把 activeElement 从 contentEditable 挪回 body，
+		// 触发意料之外的 blur -> saveText -> exitEditMode，用户还在打字就被踢出编辑。
+		// 移动端改由显式手势退出编辑：
+		//   - Tap 空白画布 -> InteractionManager.handleCanvasClick -> onExitEditMode -> saveText
+		//   - Tap 其他节点 -> enableEditing 内部会先 exitEditMode 保存当前节点
+		//   - Escape / Enter 键 -> keydown handler
+		// 桌面端保留原 blur 自动保存逻辑不变。
 		textDivNode.addEventListener("blur", () => {
 			const logger = Logger.getInstance();
 
 			logger.snapshotViewport('TextRenderer', 'blur: fired', {
 				contentEditable: textDivNode.contentEditable,
 				isEditingElement: editingState?.editElement === textDivNode,
-				textContent: textDivNode.textContent?.slice(0, 50)
+				textContent: textDivNode.textContent?.slice(0, 50),
+				isMobile: config?.isMobile
 			});
+
+			// Mobile: blur is unreliable (soft keyboard reflow steals focus).
+			// Rely on explicit exit gestures instead.
+			if (config?.isMobile) {
+				logger.debug('TextRenderer', 'blur: mobile mode, skipping auto-save');
+				return;
+			}
 
 			if (textDivNode.contentEditable === "true" && editingState?.editElement === textDivNode) {
 

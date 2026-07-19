@@ -71,6 +71,16 @@ export class RendererCoordinator implements MindMapRenderer {
 	private currentZoomTransform = d3.zoomIdentity;
 	private currentData: MindMapData | null = null;
 
+	// Container tracking for ResizeObserver-driven SVG sizing (Fix A1)
+	// SVG uses explicit pixel sizes instead of "100%" to avoid CSS-chain collapse
+	// when iPad soft keyboard shrinks .mind-map-container (SVG rendered height=0 bug).
+	private currentContainer: Element | null = null;
+	private resizeObserver: ResizeObserver | null = null;
+	// Sticky maximum SVG size: never shrink below the initial-render dimensions
+	// so a transient container collapse (keyboard, layout reflow) cannot make nodes disappear.
+	private stickySvgWidth = 0;
+	private stickySvgHeight = 0;
+
 	// View state
 	private isRendering = false;
 	private pendingRenderRequest = false;
@@ -266,24 +276,43 @@ export class RendererCoordinator implements MindMapRenderer {
 			// Clear container - use D3 method instead of innerHTML, preserve object references
 			d3.select(container).selectAll('*').remove();
 
+			// Fix A1: compute explicit pixel dimensions for the SVG instead of "100%".
+			// Using "100%" makes the SVG collapse to height=0 when the parent chain
+			// briefly reports 0 height (observed on iPad when the soft keyboard
+			// shrinks .mind-map-container). Explicit pixels + a sticky maximum
+			// combined with a ResizeObserver keeps the SVG viewport non-zero.
+			const containerRect = container.getBoundingClientRect();
+			const initialWidth = Math.max(containerRect.width, 1);
+			const initialHeight = Math.max(containerRect.height, 1);
+			this.stickySvgWidth = initialWidth;
+			this.stickySvgHeight = initialHeight;
+			this.currentContainer = container;
+
 			// Create SVG
 			const svg = d3.select(container).append('svg')
-				.attr('width', '100%')
-				.attr('height', '100%')
-				.style('position', 'relative');
+				.attr('width', initialWidth)
+				.attr('height', initialHeight)
+				.style('position', 'relative')
+				.style('display', 'block');
 
 			this.currentSvg = svg;
+
+			// Attach ResizeObserver to keep SVG sized to the container, but never
+			// shrink below the sticky maximum. This is the anti-collapse guarantee.
+			this.attachContainerResizeObserver(container);
 
 			logger.debugLazy('RendererCoordinator', 'render: SVG created', () => {
 				const svgEl = svg.node() as SVGSVGElement | null;
 				if (!svgEl) return { svgCreated: false };
 				const r = svgEl.getBoundingClientRect();
-				const containerRect = container.getBoundingClientRect();
+				const containerRect2 = container.getBoundingClientRect();
 				return {
 					svgRect: { width: r.width, height: r.height, top: r.top, left: r.left },
-					containerRect: { width: containerRect.width, height: containerRect.height, top: containerRect.top, left: containerRect.left },
+					containerRect: { width: containerRect2.width, height: containerRect2.height, top: containerRect2.top, left: containerRect2.left },
 					svgWidth: svgEl.getAttribute('width'),
-					svgHeight: svgEl.getAttribute('height')
+					svgHeight: svgEl.getAttribute('height'),
+					stickyWidth: this.stickySvgWidth,
+					stickyHeight: this.stickySvgHeight
 				};
 			});
 
@@ -371,6 +400,17 @@ export class RendererCoordinator implements MindMapRenderer {
 	destroy(): void {
 		Logger.getInstance().debug('RendererCoordinator', 'destroy: called');
 
+		// Disconnect ResizeObserver (Fix A1)
+		if (this.resizeObserver) {
+			try {
+				this.resizeObserver.disconnect();
+			} catch {
+				// ignore
+			}
+			this.resizeObserver = null;
+		}
+		this.currentContainer = null;
+
 		// Destroy all modules
 		this.mobileToolbar?.destroy();
 		this.buttonRenderer.destroy();
@@ -385,6 +425,66 @@ export class RendererCoordinator implements MindMapRenderer {
 			this.currentSvg = null;
 		}
 		this.currentContent = null;
+	}
+
+	// ========== SVG Sizing (Fix A1) ==========
+
+	/**
+	 * Attach ResizeObserver to keep the SVG's explicit pixel width/height in sync
+	 * with the container. Uses a sticky maximum: the SVG never shrinks below the
+	 * size seen so far. This guards against the iPad soft-keyboard reflow bug
+	 * where .mind-map-container transiently reports height=0 and the SVG (with
+	 * "100%" sizing) rendered at 0 px, making all nodes disappear.
+	 */
+	private attachContainerResizeObserver(container: Element): void {
+		// Tear down any previous observer (defensive, render() may be called repeatedly)
+		if (this.resizeObserver) {
+			try {
+				this.resizeObserver.disconnect();
+			} catch {
+				// ignore
+			}
+			this.resizeObserver = null;
+		}
+
+		if (typeof ResizeObserver === 'undefined') {
+			return;
+		}
+
+		this.resizeObserver = new ResizeObserver((entries) => {
+			if (!this.currentSvg) return;
+			const entry = entries[0];
+			if (!entry) return;
+
+			const cr = entry.contentRect;
+			// Sticky max: never shrink the SVG once it has grown.
+			// This preserves the viewport across transient container collapses
+			// (iPad keyboard) and only expands when the container itself grows.
+			const nextW = Math.max(this.stickySvgWidth, cr.width);
+			const nextH = Math.max(this.stickySvgHeight, cr.height);
+
+			const changed = nextW !== this.stickySvgWidth || nextH !== this.stickySvgHeight;
+			this.stickySvgWidth = nextW;
+			this.stickySvgHeight = nextH;
+
+			if (changed) {
+				this.currentSvg.attr('width', nextW).attr('height', nextH);
+			}
+
+			Logger.getInstance().debug('RendererCoordinator', 'ResizeObserver: container resize', {
+				containerW: cr.width,
+				containerH: cr.height,
+				appliedW: nextW,
+				appliedH: nextH,
+				changed
+			});
+		});
+
+		try {
+			this.resizeObserver.observe(container);
+		} catch (err) {
+			Logger.getInstance().warn('RendererCoordinator', 'ResizeObserver.observe failed', err);
+		}
 	}
 
 	// ========== Public Methods (Compatibility Interface) ==========
