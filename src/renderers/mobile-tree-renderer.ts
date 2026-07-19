@@ -11,7 +11,6 @@ import { MindMapData } from '../interfaces/mindmap-interfaces';
 import { DesktopTreeRenderer } from './desktop-tree-renderer';
 import { MindMapService } from '../services/mindmap-service';
 import { MindMapMessages } from '../i18n';
-import { Logger } from '../utils/logger';
 
 /**
  * Mobile tree renderer class
@@ -55,20 +54,12 @@ export class MobileTreeRenderer extends DesktopTreeRenderer {
      * @param data - Mind map data structure
      */
     render(container: Element, data: MindMapData): void {
-        const logger = Logger.getInstance();
-        logger.snapshotViewport('MobileTreeRenderer', 'render: begin', {
-            rootText: data.rootNode?.text,
-            allNodesCount: data.allNodes.length
-        });
-
         // Add mobile-specific CSS class to container
         // This activates all the mobile styles in styles.css
         container.classList.add('is-mobile');
 
         // Call parent implementation (uses RendererCoordinator with mobile config)
         super.render(container, data);
-
-        logger.snapshotViewport('MobileTreeRenderer', 'render: end');
 
         // Note: All mobile-specific behavior is handled by RendererCoordinator:
         // - MobileToolbar is created when config.isMobile = true
@@ -80,8 +71,6 @@ export class MobileTreeRenderer extends DesktopTreeRenderer {
      * Destroy the renderer and clean up resources
      */
     destroy(): void {
-        Logger.getInstance().debug('MobileTreeRenderer', 'destroy: called');
-
         // Remove mobile-specific CSS class
         const container = document.querySelector('.mind-map-container.is-mobile');
         if (container) {

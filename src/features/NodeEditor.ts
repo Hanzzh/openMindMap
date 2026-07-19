@@ -98,7 +98,6 @@ export class NodeEditor {
 			// Debug mode: 双击根节点作为日志导出入口（替代命令/ribbon，iPad 友好）
 			// Non-debug mode: 保持既有 showRootNodeEditWarning() 行为，完全不变
 			if (logger.isDebugEnabled()) {
-				logger.snapshotViewport('NodeEditor', 'enableEditing: root node clicked, flushing logs');
 				void logger.flushToClipboard();
 			} else {
 				this.showRootNodeEditWarning();
@@ -106,18 +105,8 @@ export class NodeEditor {
 			return;
 		}
 
-		logger.debug('NodeEditor', 'enableEditing: begin', {
-			nodeText: node.data.text,
-			nodeLevel: node.data.level,
-			depth: node.depth,
-			isCurrentlyEditing: this.editingState.isEditing,
-			editElementInDOM: document.body.contains(editElement)
-		});
-		logger.snapshotViewport('NodeEditor', 'enableEditing: before applying edit state');
-
 		// If editing another node, exit edit mode first
 		if (this.editingState.isEditing && this.editingState.currentNode !== node) {
-			logger.debug('NodeEditor', 'enableEditing: switching from another node, exiting previous edit');
 			this.exitEditMode();
 		}
 
@@ -141,25 +130,10 @@ export class NodeEditor {
 			const nodeElement = d3.select(editElement.closest("g"));
 			nodeElement.classed("node-editing", true);
 
-			logger.debugLazy('NodeEditor', 'enableEditing: edit state applied', () => {
-				const rect = editElement.getBoundingClientRect();
-				return {
-					contentEditable: editElement.contentEditable,
-					className: editElement.className,
-					rect: { width: rect.width, height: rect.height, top: rect.top, left: rect.left }
-				};
-			});
-
 			// Set focus and select all text (use setTimeout to ensure event handling completes)
 			setTimeout(() => {
 				try {
-					logger.snapshotViewport('NodeEditor', 'enableEditing: setTimeout(10ms) before focus()');
-
 					editElement.focus();
-
-					logger.snapshotViewport('NodeEditor', 'enableEditing: setTimeout(10ms) after focus()', {
-						activeIsEditElement: document.activeElement === editElement
-					});
 
 					// Select all text - use range.selectNodeContents (consistent with tmp branch)
 					const range = document.createRange();
@@ -169,8 +143,7 @@ export class NodeEditor {
 						selection.removeAllRanges();
 						selection.addRange(range);
 					}
-				} catch (err) {
-					logger.error('NodeEditor', 'enableEditing: focus() failed', err);
+				} catch {
 					this.showValidationError(this.messages.errors.focusSetFailed);
 					this.exitEditMode();
 				}
@@ -181,8 +154,7 @@ export class NodeEditor {
 				this.showEditingHint();
 			}, 100);
 
-		} catch (err) {
-			logger.error('NodeEditor', 'enableEditing: enter edit mode failed', err);
+		} catch {
 			this.showValidationError(this.messages.errors.enterEditModeFailed);
 			this.exitEditMode();
 		}
@@ -193,13 +165,6 @@ export class NodeEditor {
 	 */
 	exitEditMode(): void {
 		if (!this.editingState.isEditing) return;
-
-		// Capture caller stack to identify who triggered exit (useful for iPad keyboard debugging)
-		Logger.getInstance().debugLazy('NodeEditor', 'exitEditMode: called', () => ({
-			stack: new Error().stack?.split('\n').slice(0, 8),
-			nodeText: this.editingState.currentNode?.data.text,
-			originalText: this.editingState.originalText
-		}));
 
 		const { editElement } = this.editingState;
 
@@ -234,8 +199,6 @@ export class NodeEditor {
 		this.editingState.currentNode = null;
 		this.editingState.originalText = '';
 		this.editingState.editElement = null;
-
-		Logger.getInstance().snapshotViewport('NodeEditor', 'exitEditMode: completed');
 	}
 
 	/**
@@ -243,11 +206,6 @@ export class NodeEditor {
 	 */
 	cancelEdit(): void {
 		if (!this.editingState.isEditing) return;
-
-		Logger.getInstance().debug('NodeEditor', 'cancelEdit: called', {
-			nodeText: this.editingState.currentNode?.data.text,
-			originalText: this.editingState.originalText
-		});
 
 		const { editElement } = this.editingState;
 
@@ -265,36 +223,24 @@ export class NodeEditor {
 	 * Save node text
 	 */
 	saveText(): void {
-		const logger = Logger.getInstance();
-
 		if (!this.editingState.isEditing ||
 			!this.editingState.currentNode ||
 			!this.editingState.editElement) {
-			logger.debug('NodeEditor', 'saveText: early return, not editing');
 			return;
 		}
 
 		const { editElement, currentNode } = this.editingState;
 		const newText = editElement.textContent?.trim() || '';
 
-		logger.debug('NodeEditor', 'saveText: begin', {
-			nodeText: currentNode.data.text,
-			newText,
-			originalText: this.editingState.originalText,
-			changed: newText !== this.editingState.originalText
-		});
-
 		try {
 			// Validate new text
 			if (!this.validateText(newText)) {
-				logger.debug('NodeEditor', 'saveText: validation failed (empty/invalid)');
 				this.showValidationError(this.messages.errors.nodeTextEmpty);
 				return;
 			}
 
 			// Check if text really changed
 			if (newText === this.editingState.originalText) {
-				logger.debug('NodeEditor', 'saveText: text unchanged, exiting edit mode');
 				this.exitEditMode();
 				return;
 			}
@@ -308,13 +254,7 @@ export class NodeEditor {
 			// Trigger file save callback
 			this.callbacks.onTextChanged?.(currentNode, newText);
 
-			logger.debug('NodeEditor', 'saveText: text saved', {
-				newText,
-				nodeLevel: currentNode.data.level
-			});
-
-		} catch (err) {
-			logger.error('NodeEditor', 'saveText: failed', err);
+		} catch {
 			this.showValidationError(this.messages.errors.saveFailed);
 			// Restore original text
 			editElement.textContent = this.editingState.originalText;

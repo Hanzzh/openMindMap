@@ -507,12 +507,6 @@ class MindMapView extends ItemView {
 	}
 
 	setState(state: { file?: string }, result: ViewStateResult) {
-		Logger.getInstance().debug('MindMapView', 'setState: called', {
-			stateFile: state.file,
-			currentFilePath: this.filePath,
-			needsContentLoading: this.needsContentLoading
-		});
-
 		this.filePath = state.file || null;
 		this.isStateLoaded = true;
 
@@ -541,9 +535,6 @@ class MindMapView extends ItemView {
 	}
 
 	async onOpen() {
-		const logger = Logger.getInstance();
-		logger.snapshotViewport('MindMapView', 'onOpen: begin');
-
 		const container = this.containerEl.children[1];
 		container.empty();
 
@@ -565,23 +556,13 @@ class MindMapView extends ItemView {
 		// Set flag to indicate content loading is needed
 		this.needsContentLoading = true;
 
-		logger.debug('MindMapView', 'onOpen: setup complete', {
-			filePath: this.filePath,
-			needsContentLoading: this.needsContentLoading
-		});
-
 		// Try to load content if state is already available
 		if (this.filePath) {
 			await this.loadFileContent();
 		}
-
-		logger.snapshotViewport('MindMapView', 'onOpen: end');
 	}
 
 	async loadFileContent() {
-		const logger = Logger.getInstance();
-		logger.debug('MindMapView', 'loadFileContent: begin', { filePath: this.filePath });
-
 		const container = this.containerEl.children[1];
 		container.empty();
 
@@ -618,7 +599,6 @@ class MindMapView extends ItemView {
 		this.filePath = filePath;
 
 		if (!this.filePath) {
-			logger.debug('MindMapView', 'loadFileContent: no mindmap file found');
 			statusEl.textContent = "No mind map file found";
 
 			const errorDiv = container.createDiv("mind-map-error");
@@ -654,20 +634,13 @@ class MindMapView extends ItemView {
 
 				const content = await this.mindMapService.getFileHandler().loadFileContent(file);
 
-				logger.debug('MindMapView', 'loadFileContent: file loaded', {
-					filePath: this.filePath,
-					contentLength: content.length
-				});
-
 				// Clear loading status
 				container.empty();
 				await this.renderMindMap(content);
 			} else {
-				logger.debug('MindMapView', 'loadFileContent: file not found in vault', { filePath: this.filePath });
 				statusEl.textContent = `Error: File not found: ${this.filePath}`;
 			}
 		} catch (error) {
-			logger.error('MindMapView', 'loadFileContent: failed', error);
 			statusEl.textContent = `Error loading file: ${error instanceof Error ? error.message : String(error)}`;
 
 			const errorDiv = container.createDiv("mind-map-error");
@@ -678,9 +651,6 @@ class MindMapView extends ItemView {
 	}
 
 	renderMindMap(content: string): Promise<void> {
-		const logger = Logger.getInstance();
-		logger.snapshotViewport('MindMapView', 'renderMindMap: begin');
-
 		const container = this.containerEl.children[1];
 		container.empty();
 
@@ -690,16 +660,8 @@ class MindMapView extends ItemView {
 		// 保存数据引用以便编辑时使用
 		this.mindMapData = mindMapData;
 
-		logger.debug('MindMapView', 'renderMindMap: data parsed', {
-			rootText: mindMapData.rootNode?.text,
-			allNodesCount: mindMapData.allNodes.length,
-			maxLevel: mindMapData.maxLevel
-		});
-
 		// 渲染层：使用渲染器进行可视化
 		this.renderer.render(container, mindMapData);
-
-		logger.snapshotViewport('MindMapView', 'renderMindMap: end');
 
 		return Promise.resolve();
 	}
@@ -708,21 +670,9 @@ class MindMapView extends ItemView {
 	
 	// 处理节点文本变化（带防抖优化）
 	private handleNodeTextChanged(node: d3.HierarchyNode<MindMapNode>, newText: string): void {
-		const logger = Logger.getInstance();
-
 		if (!this.mindMapData || !this.filePath) {
-			logger.debug('MindMapView', 'handleNodeTextChanged: early return', {
-				hasData: !!this.mindMapData,
-				hasFilePath: !!this.filePath
-			});
 			return;
 		}
-
-		logger.debug('MindMapView', 'handleNodeTextChanged: scheduled', {
-			nodeText: node.data.text,
-			newText,
-			willRefreshIn: '300ms'
-		});
 
 		// 立即更新内存数据
 		node.data.text = newText;
@@ -734,8 +684,6 @@ class MindMapView extends ItemView {
 
 		// 设置新的定时器（300ms后批量更新）
 		this.updateTimer = setTimeout(() => {
-			logger.debug('MindMapView', 'handleNodeTextChanged: debounce fired, calling refreshMindMapLayout');
-
 			// 完全重新渲染（确保布局正确）
 			// Note: View state is automatically saved by RendererCoordinator internally
 			this.refreshMindMapLayout();
@@ -752,9 +700,6 @@ class MindMapView extends ItemView {
 
 	// 处理数据更新（新增节点时调用）
 	private handleDataUpdated(): void {
-		const logger = Logger.getInstance();
-		logger.debug('MindMapView', 'handleDataUpdated: called');
-
 		if (!this.mindMapData || !this.filePath) return;
 
 		// 重新生成数据结构确保一致性
@@ -770,12 +715,6 @@ class MindMapView extends ItemView {
 
 	// 处理数据恢复（undo/redo 时调用）
 	private handleDataRestored(data: MindMapData): void {
-		const logger = Logger.getInstance();
-		logger.debug('MindMapView', 'handleDataRestored: called', {
-			rootText: data.rootNode?.text,
-			allNodesCount: data.allNodes.length
-		});
-
 		// ✅ 关键修复：直接更新 mindMapData 引用
 		// 这样 refreshMindMapLayout() 就会使用恢复后的数据
 		this.mindMapData = data;
@@ -791,13 +730,7 @@ class MindMapView extends ItemView {
 
 	// 刷新思维导图布局（优化版）
 	private refreshMindMapLayout(): void {
-		const logger = Logger.getInstance();
-
 		if (!this.mindMapData || !this.renderer) {
-			logger.debug('MindMapView', 'refreshMindMapLayout: early return', {
-				hasData: !!this.mindMapData,
-				hasRenderer: !!this.renderer
-			});
 			return;
 		}
 
@@ -807,39 +740,18 @@ class MindMapView extends ItemView {
 			// 获取当前容器元素
 			const container = this.containerEl.children[1];
 			if (!container) {
-				logger.debug('MindMapView', 'refreshMindMapLayout: container not found');
 				return;
 			}
 
-			// rAF 之前记录一次容器尺寸（捕获键盘弹出瞬间的容器状态）
-			logger.snapshotViewport('MindMapView', 'refreshMindMapLayout: before rAF', {
-				containerRect: (() => {
-					const r = (container as HTMLElement).getBoundingClientRect();
-					return { width: r.width, height: r.height, top: r.top, left: r.left };
-				})()
-			});
-
 			// 使用 requestAnimationFrame 确保在下一次渲染帧中执行，避免视觉跳跃
 			requestAnimationFrame(() => {
-				// rAF 回调内、container.empty() 之前再记录一次尺寸
-				// （对比 before rAF，可判定键盘是否在此期间改变了容器尺寸）
-				logger.snapshotViewport('MindMapView', 'refreshMindMapLayout: rAF callback, before container.empty()', {
-					containerRect: (() => {
-						const r = (container as HTMLElement).getBoundingClientRect();
-						return { width: r.width, height: r.height, top: r.top, left: r.left };
-					})()
-				});
-
 				// 清空当前渲染内容
 				container.empty();
 
 				// 重新渲染整个思维导图（这会自动恢复之前保存的视图状态）
 				this.renderer.render(container, this.mindMapData);
-
-				logger.snapshotViewport('MindMapView', 'refreshMindMapLayout: rAF callback, after render');
 			});
-		} catch (err) {
-			logger.error('MindMapView', 'refreshMindMapLayout: error', err);
+		} catch {
 			// Ignore errors during state restoration
 		}
 	}
@@ -881,8 +793,6 @@ class MindMapView extends ItemView {
 
 
 	onClose(): Promise<void> {
-		Logger.getInstance().debug('MindMapView', 'onClose: called');
-
 		// 清理防抖定时器
 		if (this.updateTimer) {
 			clearTimeout(this.updateTimer);

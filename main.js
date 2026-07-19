@@ -5082,13 +5082,6 @@ var TextRenderer = class _TextRenderer {
     textDivNode.addEventListener("keydown", (event) => {
       var _a, _b;
       if (textDivNode.contentEditable === "true") {
-        if (event.key === "Enter" || event.key === "Escape" || event.key === "Backspace") {
-          Logger.getInstance().debug("TextRenderer", "keydown: special key", {
-            key: event.key,
-            altKey: event.altKey,
-            isMobile: config == null ? void 0 : config.isMobile
-          });
-        }
         if (event.key === "Enter") {
           if (config == null ? void 0 : config.isMobile) {
             event.preventDefault();
@@ -5157,30 +5150,14 @@ var TextRenderer = class _TextRenderer {
       }
     });
     textDivNode.addEventListener("blur", () => {
-      var _a;
-      const logger = Logger.getInstance();
-      logger.snapshotViewport("TextRenderer", "blur: fired", {
-        contentEditable: textDivNode.contentEditable,
-        isEditingElement: (editingState == null ? void 0 : editingState.editElement) === textDivNode,
-        textContent: (_a = textDivNode.textContent) == null ? void 0 : _a.slice(0, 50),
-        isMobile: config == null ? void 0 : config.isMobile
-      });
       if (config == null ? void 0 : config.isMobile) {
-        logger.debug("TextRenderer", "blur: mobile mode, skipping auto-save");
         return;
       }
       if (textDivNode.contentEditable === "true" && (editingState == null ? void 0 : editingState.editElement) === textDivNode) {
         setTimeout(() => {
-          var _a2;
-          logger.snapshotViewport("TextRenderer", "blur: 150ms timer fired, checking state", {
-            isStillEditingElement: (editingState == null ? void 0 : editingState.editElement) === textDivNode,
-            activeIsEditElement: document.activeElement === textDivNode
-          });
+          var _a;
           if ((editingState == null ? void 0 : editingState.editElement) === textDivNode) {
-            logger.debug("TextRenderer", "blur: triggering saveNodeText");
-            (_a2 = parentContext.saveNodeText) == null ? void 0 : _a2.call(parentContext);
-          } else {
-            logger.debug("TextRenderer", "blur: editElement changed, skipping save");
+            (_a = parentContext.saveNodeText) == null ? void 0 : _a.call(parentContext);
           }
         }, 150);
       }
@@ -6226,23 +6203,13 @@ var NodeEditor = class {
     const logger = Logger.getInstance();
     if (node.depth === 0) {
       if (logger.isDebugEnabled()) {
-        logger.snapshotViewport("NodeEditor", "enableEditing: root node clicked, flushing logs");
         void logger.flushToClipboard();
       } else {
         this.showRootNodeEditWarning();
       }
       return;
     }
-    logger.debug("NodeEditor", "enableEditing: begin", {
-      nodeText: node.data.text,
-      nodeLevel: node.data.level,
-      depth: node.depth,
-      isCurrentlyEditing: this.editingState.isEditing,
-      editElementInDOM: document.body.contains(editElement)
-    });
-    logger.snapshotViewport("NodeEditor", "enableEditing: before applying edit state");
     if (this.editingState.isEditing && this.editingState.currentNode !== node) {
-      logger.debug("NodeEditor", "enableEditing: switching from another node, exiting previous edit");
       this.exitEditMode();
     }
     this.setCanvasInteraction(false);
@@ -6255,21 +6222,9 @@ var NodeEditor = class {
       editElement.classList.add("editing");
       const nodeElement = select_default2(editElement.closest("g"));
       nodeElement.classed("node-editing", true);
-      logger.debugLazy("NodeEditor", "enableEditing: edit state applied", () => {
-        const rect = editElement.getBoundingClientRect();
-        return {
-          contentEditable: editElement.contentEditable,
-          className: editElement.className,
-          rect: { width: rect.width, height: rect.height, top: rect.top, left: rect.left }
-        };
-      });
       setTimeout(() => {
         try {
-          logger.snapshotViewport("NodeEditor", "enableEditing: setTimeout(10ms) before focus()");
           editElement.focus();
-          logger.snapshotViewport("NodeEditor", "enableEditing: setTimeout(10ms) after focus()", {
-            activeIsEditElement: document.activeElement === editElement
-          });
           const range = document.createRange();
           range.selectNodeContents(editElement);
           const selection2 = window.getSelection();
@@ -6277,8 +6232,7 @@ var NodeEditor = class {
             selection2.removeAllRanges();
             selection2.addRange(range);
           }
-        } catch (err) {
-          logger.error("NodeEditor", "enableEditing: focus() failed", err);
+        } catch (e) {
           this.showValidationError(this.messages.errors.focusSetFailed);
           this.exitEditMode();
         }
@@ -6286,8 +6240,7 @@ var NodeEditor = class {
       setTimeout(() => {
         this.showEditingHint();
       }, 100);
-    } catch (err) {
-      logger.error("NodeEditor", "enableEditing: enter edit mode failed", err);
+    } catch (e) {
       this.showValidationError(this.messages.errors.enterEditModeFailed);
       this.exitEditMode();
     }
@@ -6297,14 +6250,6 @@ var NodeEditor = class {
    */
   exitEditMode() {
     if (!this.editingState.isEditing) return;
-    Logger.getInstance().debugLazy("NodeEditor", "exitEditMode: called", () => {
-      var _a, _b;
-      return {
-        stack: (_a = new Error().stack) == null ? void 0 : _a.split("\n").slice(0, 8),
-        nodeText: (_b = this.editingState.currentNode) == null ? void 0 : _b.data.text,
-        originalText: this.editingState.originalText
-      };
-    });
     const { editElement } = this.editingState;
     this.setCanvasInteraction(true);
     if (editElement) {
@@ -6325,18 +6270,12 @@ var NodeEditor = class {
     this.editingState.currentNode = null;
     this.editingState.originalText = "";
     this.editingState.editElement = null;
-    Logger.getInstance().snapshotViewport("NodeEditor", "exitEditMode: completed");
   }
   /**
    * Cancel edit mode (restore original text)
    */
   cancelEdit() {
-    var _a;
     if (!this.editingState.isEditing) return;
-    Logger.getInstance().debug("NodeEditor", "cancelEdit: called", {
-      nodeText: (_a = this.editingState.currentNode) == null ? void 0 : _a.data.text,
-      originalText: this.editingState.originalText
-    });
     const { editElement } = this.editingState;
     if (editElement && this.editingState.originalText) {
       editElement.textContent = this.editingState.originalText;
@@ -6348,39 +6287,24 @@ var NodeEditor = class {
    */
   saveText() {
     var _a, _b, _c, _d, _e;
-    const logger = Logger.getInstance();
     if (!this.editingState.isEditing || !this.editingState.currentNode || !this.editingState.editElement) {
-      logger.debug("NodeEditor", "saveText: early return, not editing");
       return;
     }
     const { editElement, currentNode } = this.editingState;
     const newText = ((_a = editElement.textContent) == null ? void 0 : _a.trim()) || "";
-    logger.debug("NodeEditor", "saveText: begin", {
-      nodeText: currentNode.data.text,
-      newText,
-      originalText: this.editingState.originalText,
-      changed: newText !== this.editingState.originalText
-    });
     try {
       if (!this.validateText(newText)) {
-        logger.debug("NodeEditor", "saveText: validation failed (empty/invalid)");
         this.showValidationError(this.messages.errors.nodeTextEmpty);
         return;
       }
       if (newText === this.editingState.originalText) {
-        logger.debug("NodeEditor", "saveText: text unchanged, exiting edit mode");
         this.exitEditMode();
         return;
       }
       (_c = (_b = this.callbacks).onBeforeTextChange) == null ? void 0 : _c.call(_b, currentNode);
       currentNode.data.text = newText;
       (_e = (_d = this.callbacks).onTextChanged) == null ? void 0 : _e.call(_d, currentNode, newText);
-      logger.debug("NodeEditor", "saveText: text saved", {
-        newText,
-        nodeLevel: currentNode.data.level
-      });
-    } catch (err) {
-      logger.error("NodeEditor", "saveText: failed", err);
+    } catch (e) {
       this.showValidationError(this.messages.errors.saveFailed);
       editElement.textContent = this.editingState.originalText;
     }
@@ -7004,17 +6928,7 @@ var RendererCoordinator = class {
   }
   // ========== MindMapRenderer Interface Implementation ==========
   render(container, data) {
-    var _a;
-    const logger = Logger.getInstance();
-    logger.snapshotViewport("RendererCoordinator", "render: begin", {
-      isRendering: this.isRendering,
-      pendingRenderRequest: this.pendingRenderRequest,
-      allNodesCount: data.allNodes.length,
-      rootText: (_a = data.rootNode) == null ? void 0 : _a.text,
-      maxLevel: data.maxLevel
-    });
     if (this.isRendering) {
-      logger.debug("RendererCoordinator", "render: already rendering, deferring as pending");
       this.pendingRenderRequest = true;
       return;
     }
@@ -7023,7 +6937,6 @@ var RendererCoordinator = class {
     this.validateSelectionState();
     let root2;
     try {
-      logger.debug("RendererCoordinator", "render: about to clear container");
       select_default2(container).selectAll("*").remove();
       const containerRect = container.getBoundingClientRect();
       const initialWidth = Math.max(containerRect.width, 1);
@@ -7034,20 +6947,6 @@ var RendererCoordinator = class {
       const svg = select_default2(container).append("svg").attr("width", initialWidth).attr("height", initialHeight).style("position", "relative").style("display", "block");
       this.currentSvg = svg;
       this.attachContainerResizeObserver(container);
-      logger.debugLazy("RendererCoordinator", "render: SVG created", () => {
-        const svgEl = svg.node();
-        if (!svgEl) return { svgCreated: false };
-        const r = svgEl.getBoundingClientRect();
-        const containerRect2 = container.getBoundingClientRect();
-        return {
-          svgRect: { width: r.width, height: r.height, top: r.top, left: r.left },
-          containerRect: { width: containerRect2.width, height: containerRect2.height, top: containerRect2.top, left: containerRect2.left },
-          svgWidth: svgEl.getAttribute("width"),
-          svgHeight: svgEl.getAttribute("height"),
-          stickyWidth: this.stickySvgWidth,
-          stickyHeight: this.stickySvgHeight
-        };
-      });
       this.currentContent = svg.append("g").attr("class", "mindmap-content");
       root2 = hierarchy(data.rootNode);
       const dynamicTreeHeight = this.calculateDynamicTreeHeight(root2);
@@ -7068,17 +6967,11 @@ var RendererCoordinator = class {
       const offsetY = 0;
       this.renderLinks(root2, offsetX, offsetY);
       this.renderNodes(root2, offsetX, offsetY);
-      logger.debugLazy("RendererCoordinator", "render: nodes & links rendered", () => ({
-        nodeCount: root2.descendants().length,
-        leafCount: root2.leaves().length,
-        depth: root2.height
-      }));
       this.restoreViewState();
       this.applyInitialViewPosition(root2, svg, this.currentZoom, container);
     } finally {
       this.isRendering = false;
       if (this.pendingRenderRequest) {
-        logger.debug("RendererCoordinator", "render: pending request detected, scheduling nested render");
         this.pendingRenderRequest = false;
         setTimeout(() => {
           this.render(container, data);
@@ -7089,12 +6982,10 @@ var RendererCoordinator = class {
         this.mobileToolbar.create(this.currentSvg);
       }
       this.restoreSelectionUI();
-      logger.snapshotViewport("RendererCoordinator", "render: end");
     }
   }
   destroy() {
     var _a;
-    Logger.getInstance().debug("RendererCoordinator", "destroy: called");
     if (this.resizeObserver) {
       try {
         this.resizeObserver.disconnect();
@@ -7748,21 +7639,13 @@ var MobileTreeRenderer = class extends DesktopTreeRenderer {
    * @param data - Mind map data structure
    */
   render(container, data) {
-    var _a;
-    const logger = Logger.getInstance();
-    logger.snapshotViewport("MobileTreeRenderer", "render: begin", {
-      rootText: (_a = data.rootNode) == null ? void 0 : _a.text,
-      allNodesCount: data.allNodes.length
-    });
     container.classList.add("is-mobile");
     super.render(container, data);
-    logger.snapshotViewport("MobileTreeRenderer", "render: end");
   }
   /**
    * Destroy the renderer and clean up resources
    */
   destroy() {
-    Logger.getInstance().debug("MobileTreeRenderer", "destroy: called");
     const container = document.querySelector(".mind-map-container.is-mobile");
     if (container) {
       container.classList.remove("is-mobile");
@@ -9826,11 +9709,6 @@ var MindMapView = class _MindMapView extends import_obsidian8.ItemView {
   }
   setState(state, result) {
     var _a;
-    Logger.getInstance().debug("MindMapView", "setState: called", {
-      stateFile: state.file,
-      currentFilePath: this.filePath,
-      needsContentLoading: this.needsContentLoading
-    });
     this.filePath = state.file || null;
     this.isStateLoaded = true;
     if (!this.filePath) {
@@ -9850,8 +9728,6 @@ var MindMapView = class _MindMapView extends import_obsidian8.ItemView {
     return Promise.resolve();
   }
   async onOpen() {
-    const logger = Logger.getInstance();
-    logger.snapshotViewport("MindMapView", "onOpen: begin");
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass("mind-map-container");
@@ -9862,19 +9738,12 @@ var MindMapView = class _MindMapView extends import_obsidian8.ItemView {
     this.renderer.onDataRestored = (data) => this.handleDataRestored(data);
     this.clearHistory();
     this.needsContentLoading = true;
-    logger.debug("MindMapView", "onOpen: setup complete", {
-      filePath: this.filePath,
-      needsContentLoading: this.needsContentLoading
-    });
     if (this.filePath) {
       await this.loadFileContent();
     }
-    logger.snapshotViewport("MindMapView", "onOpen: end");
   }
   async loadFileContent() {
     var _a, _b;
-    const logger = Logger.getInstance();
-    logger.debug("MindMapView", "loadFileContent: begin", { filePath: this.filePath });
     const container = this.containerEl.children[1];
     container.empty();
     container.createEl("h4", { text: "\u{1F9E0} mind map" });
@@ -9898,7 +9767,6 @@ var MindMapView = class _MindMapView extends import_obsidian8.ItemView {
     }
     this.filePath = filePath;
     if (!this.filePath) {
-      logger.debug("MindMapView", "loadFileContent: no mindmap file found");
       statusEl.textContent = "No mind map file found";
       const errorDiv = container.createDiv("mind-map-error");
       errorDiv.createEl("strong", { text: "Error:" });
@@ -9924,18 +9792,12 @@ var MindMapView = class _MindMapView extends import_obsidian8.ItemView {
       if (file instanceof import_obsidian8.TFile) {
         statusEl.textContent = "Parsing content...";
         const content = await this.mindMapService.getFileHandler().loadFileContent(file);
-        logger.debug("MindMapView", "loadFileContent: file loaded", {
-          filePath: this.filePath,
-          contentLength: content.length
-        });
         container.empty();
         await this.renderMindMap(content);
       } else {
-        logger.debug("MindMapView", "loadFileContent: file not found in vault", { filePath: this.filePath });
         statusEl.textContent = `Error: File not found: ${this.filePath}`;
       }
     } catch (error) {
-      logger.error("MindMapView", "loadFileContent: failed", error);
       statusEl.textContent = `Error loading file: ${error instanceof Error ? error.message : String(error)}`;
       const errorDiv = container.createDiv("mind-map-error");
       errorDiv.createEl("strong", { text: "Error:" });
@@ -9944,44 +9806,24 @@ var MindMapView = class _MindMapView extends import_obsidian8.ItemView {
     }
   }
   renderMindMap(content) {
-    var _a;
-    const logger = Logger.getInstance();
-    logger.snapshotViewport("MindMapView", "renderMindMap: begin");
     const container = this.containerEl.children[1];
     container.empty();
     const mindMapData = this.mindMapService.parseMarkdownToData(content, this.filePath || "");
     this.mindMapData = mindMapData;
-    logger.debug("MindMapView", "renderMindMap: data parsed", {
-      rootText: (_a = mindMapData.rootNode) == null ? void 0 : _a.text,
-      allNodesCount: mindMapData.allNodes.length,
-      maxLevel: mindMapData.maxLevel
-    });
     this.renderer.render(container, mindMapData);
-    logger.snapshotViewport("MindMapView", "renderMindMap: end");
     return Promise.resolve();
   }
   // 处理节点文本变化（带防抖优化）
   handleNodeTextChanged(node, newText) {
-    const logger = Logger.getInstance();
     if (!this.mindMapData || !this.filePath) {
-      logger.debug("MindMapView", "handleNodeTextChanged: early return", {
-        hasData: !!this.mindMapData,
-        hasFilePath: !!this.filePath
-      });
       return;
     }
-    logger.debug("MindMapView", "handleNodeTextChanged: scheduled", {
-      nodeText: node.data.text,
-      newText,
-      willRefreshIn: "300ms"
-    });
     node.data.text = newText;
     if (this.updateTimer) {
       clearTimeout(this.updateTimer);
     }
     this.updateTimer = setTimeout(() => {
       var _a;
-      logger.debug("MindMapView", "handleNodeTextChanged: debounce fired, calling refreshMindMapLayout");
       this.refreshMindMapLayout();
       if (this.filePath && ((_a = this.mindMapData) == null ? void 0 : _a.rootNode)) {
         void this.mindMapService.saveToMarkdownFile(this.filePath, this.mindMapData.rootNode);
@@ -9991,8 +9833,6 @@ var MindMapView = class _MindMapView extends import_obsidian8.ItemView {
   }
   // 处理数据更新（新增节点时调用）
   handleDataUpdated() {
-    const logger = Logger.getInstance();
-    logger.debug("MindMapView", "handleDataUpdated: called");
     if (!this.mindMapData || !this.filePath) return;
     const rootNode = this.mindMapData.rootNode;
     if (rootNode) {
@@ -10002,12 +9842,6 @@ var MindMapView = class _MindMapView extends import_obsidian8.ItemView {
   }
   // 处理数据恢复（undo/redo 时调用）
   handleDataRestored(data) {
-    var _a;
-    const logger = Logger.getInstance();
-    logger.debug("MindMapView", "handleDataRestored: called", {
-      rootText: (_a = data.rootNode) == null ? void 0 : _a.text,
-      allNodesCount: data.allNodes.length
-    });
     this.mindMapData = data;
     this.refreshMindMapLayout();
     if (this.filePath && data.rootNode) {
@@ -10016,39 +9850,19 @@ var MindMapView = class _MindMapView extends import_obsidian8.ItemView {
   }
   // 刷新思维导图布局（优化版）
   refreshMindMapLayout() {
-    const logger = Logger.getInstance();
     if (!this.mindMapData || !this.renderer) {
-      logger.debug("MindMapView", "refreshMindMapLayout: early return", {
-        hasData: !!this.mindMapData,
-        hasRenderer: !!this.renderer
-      });
       return;
     }
     try {
       const container = this.containerEl.children[1];
       if (!container) {
-        logger.debug("MindMapView", "refreshMindMapLayout: container not found");
         return;
       }
-      logger.snapshotViewport("MindMapView", "refreshMindMapLayout: before rAF", {
-        containerRect: (() => {
-          const r = container.getBoundingClientRect();
-          return { width: r.width, height: r.height, top: r.top, left: r.left };
-        })()
-      });
       requestAnimationFrame(() => {
-        logger.snapshotViewport("MindMapView", "refreshMindMapLayout: rAF callback, before container.empty()", {
-          containerRect: (() => {
-            const r = container.getBoundingClientRect();
-            return { width: r.width, height: r.height, top: r.top, left: r.left };
-          })()
-        });
         container.empty();
         this.renderer.render(container, this.mindMapData);
-        logger.snapshotViewport("MindMapView", "refreshMindMapLayout: rAF callback, after render");
       });
-    } catch (err) {
-      logger.error("MindMapView", "refreshMindMapLayout: error", err);
+    } catch (e) {
     }
   }
   // ========== Undo/Redo 方法 ==========
@@ -10083,7 +9897,6 @@ var MindMapView = class _MindMapView extends import_obsidian8.ItemView {
     }
   }
   onClose() {
-    Logger.getInstance().debug("MindMapView", "onClose: called");
     if (this.updateTimer) {
       clearTimeout(this.updateTimer);
       this.updateTimer = null;

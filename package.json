@@ -1,6 +1,6 @@
 {
 	"name": "openMindMap",
-	"version": "1.0.5",
+	"version": "1.0.7",
 	"description": "Transform markdown files with #mindmap into interactive mind maps with AI-powered node suggestions and OpenAI-compatible API integration",
 	"main": "main.js",
 	"scripts": {

@@ -245,18 +245,8 @@ export class RendererCoordinator implements MindMapRenderer {
 	// ========== MindMapRenderer Interface Implementation ==========
 
 	render(container: Element, data: MindMapData): void {
-		const logger = Logger.getInstance();
-		logger.snapshotViewport('RendererCoordinator', 'render: begin', {
-			isRendering: this.isRendering,
-			pendingRenderRequest: this.pendingRenderRequest,
-			allNodesCount: data.allNodes.length,
-			rootText: data.rootNode?.text,
-			maxLevel: data.maxLevel
-		});
-
 		// Render lock mechanism
 		if (this.isRendering) {
-			logger.debug('RendererCoordinator', 'render: already rendering, deferring as pending');
 			this.pendingRenderRequest = true;
 			return;
 		}
@@ -272,7 +262,6 @@ export class RendererCoordinator implements MindMapRenderer {
 		let root: d3.HierarchyNode<MindMapNode>;
 
 		try {
-			logger.debug('RendererCoordinator', 'render: about to clear container');
 			// Clear container - use D3 method instead of innerHTML, preserve object references
 			d3.select(container).selectAll('*').remove();
 
@@ -300,21 +289,6 @@ export class RendererCoordinator implements MindMapRenderer {
 			// Attach ResizeObserver to keep SVG sized to the container, but never
 			// shrink below the sticky maximum. This is the anti-collapse guarantee.
 			this.attachContainerResizeObserver(container);
-
-			logger.debugLazy('RendererCoordinator', 'render: SVG created', () => {
-				const svgEl = svg.node() as SVGSVGElement | null;
-				if (!svgEl) return { svgCreated: false };
-				const r = svgEl.getBoundingClientRect();
-				const containerRect2 = container.getBoundingClientRect();
-				return {
-					svgRect: { width: r.width, height: r.height, top: r.top, left: r.left },
-					containerRect: { width: containerRect2.width, height: containerRect2.height, top: containerRect2.top, left: containerRect2.left },
-					svgWidth: svgEl.getAttribute('width'),
-					svgHeight: svgEl.getAttribute('height'),
-					stickyWidth: this.stickySvgWidth,
-					stickyHeight: this.stickySvgHeight
-				};
-			});
 
 			// Create content group
 			this.currentContent = svg.append('g')
@@ -358,12 +332,6 @@ export class RendererCoordinator implements MindMapRenderer {
 			// Render nodes
 			this.renderNodes(root, offsetX, offsetY);
 
-			logger.debugLazy('RendererCoordinator', 'render: nodes & links rendered', () => ({
-				nodeCount: root.descendants().length,
-				leafCount: root.leaves().length,
-				depth: root.height
-			}));
-
 			// Restore view state
 			this.restoreViewState();
 
@@ -375,7 +343,6 @@ export class RendererCoordinator implements MindMapRenderer {
 
 			// Handle pending render request
 			if (this.pendingRenderRequest) {
-				logger.debug('RendererCoordinator', 'render: pending request detected, scheduling nested render');
 				this.pendingRenderRequest = false;
 				setTimeout(() => {
 					this.render(container, data);
@@ -392,14 +359,10 @@ export class RendererCoordinator implements MindMapRenderer {
 
 			// Restore UI state (if there's a selected node, show toolbar)
 			this.restoreSelectionUI();
-
-			logger.snapshotViewport('RendererCoordinator', 'render: end');
 		}
 	}
 
 	destroy(): void {
-		Logger.getInstance().debug('RendererCoordinator', 'destroy: called');
-
 		// Disconnect ResizeObserver (Fix A1)
 		if (this.resizeObserver) {
 			try {
