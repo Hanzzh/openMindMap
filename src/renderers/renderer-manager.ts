@@ -95,20 +95,6 @@ export class RendererManager implements MindMapRenderer {
 	}
 
 	/**
-	 * 检查当前是否处于节点编辑状态（透传到内部 renderer）
-	 */
-	isEditing(): boolean {
-		return this.renderer.isEditing();
-	}
-
-	/**
-	 * 获取当前正在编辑的 DOM 元素，未编辑时返回 null（透传到内部 renderer）
-	 */
-	getEditingElement(): HTMLDivElement | null {
-		return this.renderer.getEditingElement();
-	}
-
-	/**
 	 * onTextChanged callback getter/setter
 	 * Delegates to the internal renderer (DesktopTreeRenderer or MobileTreeRenderer)
 	 */

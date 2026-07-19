@@ -74,10 +74,6 @@ export interface MindMapRenderer {
     onTextChanged?: (node: d3.HierarchyNode<MindMapNode>, newText: string) => void;
     onDataUpdated?: () => void;
     onDataRestored?: (data: MindMapData) => void;  // 当 undo/redo 恢复数据时调用
-    /** 检查当前是否处于节点编辑状态 */
-    isEditing?(): boolean;
-    /** 获取当前正在编辑的 DOM 元素，未编辑时返回 null */
-    getEditingElement?(): HTMLDivElement | null;
 }
 
 /**

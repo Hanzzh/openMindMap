@@ -354,22 +354,6 @@ export class RendererCoordinator implements MindMapRenderer {
 	// ========== Public Methods (Compatibility Interface) ==========
 
 	/**
-	 * 检查当前是否处于节点编辑状态
-	 * 用于让外部（如 MindMapView）在编辑期间跳过重渲染、处理键盘视口等
-	 */
-	isEditing(): boolean {
-		return this.nodeEditor.isEditing();
-	}
-
-	/**
-	 * 获取当前正在编辑的 DOM 元素（HTMLDivElement），未编辑时返回 null
-	 * 用于 visualViewport 监听器将其 scrollIntoView
-	 */
-	getEditingElement(): HTMLDivElement | null {
-		return this.editingState.editElement;
-	}
-
-	/**
 	 * Save current view state
 	 * Note: This method is kept for compatibility, view state is actually saved automatically in render()
 	 */

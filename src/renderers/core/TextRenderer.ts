@@ -73,26 +73,25 @@ export class TextRenderer {
 
 			const textDiv = textForeignObject.append("xhtml:div")
 				.attr("contenteditable", "false")  // 默认不可编辑
-				.attr("class", d.depth === 0 ? "node-unified-text node-text-light" : "node-unified-text node-text-dark")
+				.attr("class", "node-unified-text")
 				.style("width", "100%")
 				.style("height", "100%")
 				.style("padding", `${dimensions.padding}px`)
 				.style("font-size", dimensions.fontSize)
 				.style("font-weight", dimensions.fontWeight)
+				.style("color", d.depth === 0 ? "#ffffff" : "#000000")
 				.style("text-align", isCenterAligned ? "center" : "left")
 				.style("outline", "none")
 				.style("border", "none")
+				.style("background", "transparent")
 				.style("word-wrap", "normal")       // 禁用自动换行
 				.style("white-space", "pre")         // 只保留手动换行，禁用自动换行
 				.style("overflow", "visible")
 				.style("box-sizing", "border-box")
 				.style("font-family", "var(--font-text)")
-				.style("line-height", "1.3")        // 优化：1.5->1.3，节省13%
+				.style("line-height", "1.3")        // 优化：1.5→1.3，节省13%
 				.style("cursor", "pointer");  // 默认指针样式
-				// 颜色和背景由 CSS 通过 class 控制（.node-text-light / .node-text-dark）：
-				// - 文字色避免 inline color，防止与 CSS 选择器耦合
-				// - 背景使用 var(--background-primary) 而非 transparent，
-				//   避免 iOS WKWebView 在键盘弹出时将 foreignObject 内的 transparent 合成为黑色
+				// user-select 由 CSS 的 .editing 类控制，不需要在这里设置
 
 			// 设置文本内容
 			const textDivNode = textDiv.node() as HTMLDivElement;
@@ -246,36 +245,14 @@ export class TextRenderer {
 		});
 
 		// blur: 自动保存
-		// 注意：iOS WKWebView 在键盘弹出/视口重排时可能瞬间 fire blur 焦点又恢复，
-		// 这种瞬态 blur 不应触发保存。使用 activeElement 检测 + 短延迟重检的方式过滤。
 		textDivNode.addEventListener("blur", () => {
 			if (textDivNode.contentEditable === "true" && editingState?.editElement === textDivNode) {
 
 				// 延迟保存，给点击其他元素留出时间
 				setTimeout(() => {
-					// Guard: 若延迟后编辑状态已变更/退出，不保存
-					if (editingState?.editElement !== textDivNode) return;
-
-					// Guard: 若延迟后 body 中没有其他活动元素获得焦点
-					// （即 activeElement 仍是 body/html 或本元素本身），
-					// 说明是 iOS 键盘重排引发的瞬态 blur，忽略之
-					const active = document.activeElement;
-					const isKeyboardReflowBlur =
-						active === document.body ||
-						active === document.documentElement ||
-						active === textDivNode;
-
-					if (isKeyboardReflowBlur) {
-						// 重新尝试聚焦，恢复编辑状态
-						try {
-							textDivNode.focus({ preventScroll: true });
-						} catch {
-							// ignore
-						}
-						return;
+					if (editingState?.editElement === textDivNode) {
+						parentContext.saveNodeText?.();
 					}
-
-					parentContext.saveNodeText?.();
 				}, 150);
 			}
 		});

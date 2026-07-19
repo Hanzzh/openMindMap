@@ -18,23 +18,6 @@
 /* Default node rectangle */
 .node-rect {
     transition: all 0.2s ease;
-    stroke-width: 2px;
-    /* 显式默认 fill，避免 iOS WKWebView 重排时 SVG <rect> 默认黑色 fill 闪现 */
-    fill: var(--background-primary, #f3f5f7);
-    stroke: none;
-}
-
-/* 根节点矩形：蓝色填充 + 同色边框 */
-.node-rect-root {
-    fill: #2972f4 !important;
-    stroke: #2972f4 !important;
-    stroke-width: 2px !important;
-}
-
-/* 普通节点矩形：浅灰填充，无边框 */
-.node-rect-child {
-    fill: #f3f5f7;
-    stroke: none;
 }
 
 /* Accessibility: Keyboard focus indicator for nodes */
@@ -98,18 +81,6 @@
     outline: none;
 }
 
-/* 文字颜色与背景：通过显式 class 控制，避免 inline color 与 CSS 选择器耦合，
-   并避免 iOS WKWebView 在键盘重排时将 foreignObject 内的 transparent 合成为黑色。 */
-.node-text-dark {
-    color: #000000;
-    background-color: transparent;
-}
-
-.node-text-light {
-    color: #ffffff;
-    background-color: transparent;
-}
-
 /* 编辑模式样式 - 重要 */
 .editing {
     cursor: text !important;
@@ -125,15 +96,16 @@
     z-index: 1000;
 }
 
-/* 编辑模式下的文字颜色：用显式 class 替代属性子串选择器，
-   避免 iOS 序列化 inline color 时不一致导致匹配失败。 */
-.node-unified-text.editing.node-text-dark {
+/* 编辑模式下的文字颜色 */
+.node-unified-text.editing[style*="color: rgb(0, 0, 0)"],
+.node-unified-text.editing[style*="color: #000000"] {
     color: #000000 !important;
 }
 
-/* 编辑模式下根节点（浅色文字）改为深色，与白色编辑背景对比 */
-.node-unified-text.editing.node-text-light {
-    color: #000000 !important;
+/* 编辑模式下的浅色文字（根节点） */
+.node-unified-text.editing[style*="color: rgb(255, 255, 255)"],
+.node-unified-text.editing[style*="color: #ffffff"] {
+    color: #000000 !important; /* 编辑时改为深色以便阅读 */
 }
 
 /* ------------------------------------------------------------------------
