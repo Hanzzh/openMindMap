@@ -193,7 +193,6 @@ export class ClipboardManager {
 				rootText: subtreeRoot.text,
 				rootChildren: subtreeRoot.children.length
 			});
-			void logger.dumpToClipboard();
 			return true;
 		} else {
 			// If parsing fails, fallback to plain text handling
@@ -236,7 +235,6 @@ export class ClipboardManager {
 			newText: childNode.text,
 			newLevel: childNode.level
 		});
-		void logger.dumpToClipboard();
 		return true;
 	}
 

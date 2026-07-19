@@ -377,7 +377,6 @@ export class AIAssistant {
 				parentText: parentNode.data.text,
 				suggestion
 			});
-			void logger.dumpToClipboard();
 
 			// No longer auto-close panel, allow user to continue selecting other suggestions
 		} catch (error) {

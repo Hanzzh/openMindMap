@@ -3,7 +3,9 @@
  *
  * Provides leveled logging with an in-memory buffer. When debug mode is enabled,
  * debug/info entries are recorded into a buffer and mirrored to the console.
- * The buffered entries can be exported to the clipboard via `dumpToClipboard()`.
+ * The buffered entries can be exported to the clipboard via `flushToClipboard()`
+ * (manual trigger by attempting to edit the root node) or `dumpToClipboard()`
+ * (auto-trigger, currently unused).
  *
  * warn/error are always forwarded to the console regardless of debug mode so
  * that production behavior stays consistent with the previous console-only usage.
@@ -59,12 +61,12 @@ export class Logger {
 		this.debugEnabled = enabled;
 		// Announce the state change so users see confirmation in the console.
 		const msg = enabled
-			? '[Logger] Debug mode enabled — logs will be buffered and copied to clipboard on node creation.'
+			? '[Logger] Debug mode enabled - logs will be buffered. Tap the root node to export.'
 			: '[Logger] Debug mode disabled.';
 		// Always log the toggle so the state change is visible even outside debug mode.
 		console.info(msg);
 		if (enabled) {
-			this.info('Logger', 'Debug mode enabled.');
+			this.info('Logger', 'Debug mode enabled. Tap the root node to export logs to clipboard.');
 		}
 	}
 
@@ -77,6 +79,28 @@ export class Logger {
 		if (!this.debugEnabled) return;
 		this.pushEntry('debug', tag, message, data);
 		console.debug(`[${tag}] ${message}`, data !== undefined ? data : '');
+	}
+
+	/**
+	 * Lazy-evaluated debug log. The `dataFn` is only invoked when debug mode is on,
+	 * so callers can safely pass expensive computations (getBoundingClientRect,
+	 * stack traces, JSON serialization) without affecting production performance.
+	 *
+	 * Example:
+	 *   logger.debugLazy('NodeEditor', 'exitEditMode called', () => ({
+	 *     stack: new Error().stack?.split('\n').slice(0, 6)
+	 *   }));
+	 */
+	debugLazy(tag: string, message: string, dataFn: () => unknown): void {
+		if (!this.debugEnabled) return;
+		let data: unknown;
+		try {
+			data = dataFn();
+		} catch (err) {
+			data = { __lazyError: err instanceof Error ? err.message : String(err) };
+		}
+		this.pushEntry('debug', tag, message, data);
+		console.debug(`[${tag}] ${message}`, data);
 	}
 
 	/** Info-level log. Only buffered when debug mode is on. */
@@ -119,6 +143,33 @@ export class Logger {
 	 * @returns true if the clipboard write succeeded.
 	 */
 	async dumpToClipboard(): Promise<boolean> {
+		return this.writeBufferToClipboard(true);
+	}
+
+	/**
+	 * Flush the accumulated log buffer to the system clipboard WITHOUT clearing it.
+	 * Allows multiple dumps to accumulate history across reproductions.
+	 *
+	 * Behavioral contract:
+	 * - When debug mode is OFF: silent no-op (returns false), no Notice shown.
+	 * - When debug mode is ON and buffer is empty: shows "Debug log is empty." Notice.
+	 * - When debug mode is ON and buffer has entries: copies to clipboard, shows
+	 *   "Debug logs copied to clipboard (N entries)." Notice, KEEPS the buffer.
+	 *
+	 * @returns true if the clipboard write succeeded (or buffer was empty).
+	 */
+	async flushToClipboard(): Promise<boolean> {
+		return this.writeBufferToClipboard(false);
+	}
+
+	/**
+	 * Internal helper: format buffer and write to clipboard.
+	 *
+	 * @param clearAfter If true, buffer is cleared after a successful copy
+	 *                   (used by `dumpToClipboard`). If false, buffer is
+	 *                   preserved (used by `flushToClipboard`).
+	 */
+	private async writeBufferToClipboard(clearAfter: boolean): Promise<boolean> {
 		if (!this.debugEnabled) {
 			return false;
 		}
@@ -138,13 +189,112 @@ export class Logger {
 				this.writeViaTextarea(text);
 			}
 			new Notice(`Debug logs copied to clipboard (${this.buffer.length} entries).`);
-			this.buffer = [];
+			if (clearAfter) {
+				this.buffer = [];
+			}
 			return true;
 		} catch (error) {
 			console.error('[Logger] Failed to copy logs to clipboard:', error);
 			new Notice('Failed to copy debug logs to clipboard.');
 			return false;
 		}
+	}
+
+	/**
+	 * Capture a viewport+container sizing snapshot as a debug log entry.
+	 * Zero-op when debug mode is off (no DOM queries, no allocations).
+	 *
+	 * Collected metrics:
+	 * - window.innerWidth / innerHeight
+	 * - window.visualViewport (width, height, offsetTop, offsetLeft, scale)
+	 * - document.activeElement (tagName + className)
+	 * - `.mind-map-container` getBoundingClientRect
+	 * - closest SVG ancestor (`.mindmap-content` parent) getBoundingClientRect
+	 * - `.node-unified-text.editing` getBoundingClientRect (if present)
+	 *
+	 * @param tag Logger tag
+	 * @param message Logger message
+	 * @param extra Optional extra fields merged into the snapshot
+	 */
+	snapshotViewport(
+		tag: string,
+		message: string,
+		extra?: Record<string, unknown>
+	): void {
+		if (!this.debugEnabled) return;
+
+		const snapshot: Record<string, unknown> = {
+			window: {
+				innerWidth: window.innerWidth,
+				innerHeight: window.innerHeight
+			},
+			visualViewport: this.snapshotVisualViewport(),
+			activeElement: this.snapshotActiveElement(),
+			container: this.snapshotElement('.mind-map-container'),
+			svg: this.snapshotSvg(),
+			editingElement: this.snapshotElement('.node-unified-text.editing')
+		};
+
+		if (extra) {
+			snapshot.extra = extra;
+		}
+
+		this.pushEntry('debug', tag, message, snapshot);
+		console.debug(`[${tag}] ${message}`, snapshot);
+	}
+
+	private snapshotVisualViewport(): Record<string, unknown> | null {
+		const vv = window.visualViewport;
+		if (!vv) return null;
+		return {
+			width: vv.width,
+			height: vv.height,
+			offsetTop: vv.offsetTop,
+			offsetLeft: vv.offsetLeft,
+			scale: vv.scale
+		};
+	}
+
+	private snapshotActiveElement(): Record<string, unknown> | null {
+		const el = document.activeElement;
+		if (!el || el === document.body) {
+			return { tagName: 'body', className: '' };
+		}
+		return {
+			tagName: el.tagName,
+			className: typeof el.className === 'string' ? el.className : '',
+			contentEditable: (el as HTMLElement).isContentEditable
+		};
+	}
+
+	private snapshotElement(selector: string): Record<string, unknown> | null {
+		const el = document.querySelector(selector) as HTMLElement | null;
+		if (!el) return null;
+		const rect = el.getBoundingClientRect();
+		return {
+			width: rect.width,
+			height: rect.height,
+			top: rect.top,
+			left: rect.left,
+			childCount: el.childElementCount
+		};
+	}
+
+	private snapshotSvg(): Record<string, unknown> | null {
+		const content = document.querySelector('.mindmap-content') as SVGGElement | null;
+		if (!content) return null;
+		const svg = content.closest('svg') as SVGSVGElement | null;
+		if (!svg) return null;
+		const rect = svg.getBoundingClientRect();
+		return {
+			width: rect.width,
+			height: rect.height,
+			top: rect.top,
+			left: rect.left,
+			attrWidth: svg.getAttribute('width'),
+			attrHeight: svg.getAttribute('height'),
+			childCount: svg.childElementCount
+		};
 	}
 
 	private pushEntry(level: LogLevel, tag: string, message: string, data?: unknown): void {

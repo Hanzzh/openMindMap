@@ -235,8 +235,18 @@ export class RendererCoordinator implements MindMapRenderer {
 	// ========== MindMapRenderer Interface Implementation ==========
 
 	render(container: Element, data: MindMapData): void {
+		const logger = Logger.getInstance();
+		logger.snapshotViewport('RendererCoordinator', 'render: begin', {
+			isRendering: this.isRendering,
+			pendingRenderRequest: this.pendingRenderRequest,
+			allNodesCount: data.allNodes.length,
+			rootText: data.rootNode?.text,
+			maxLevel: data.maxLevel
+		});
+
 		// Render lock mechanism
 		if (this.isRendering) {
+			logger.debug('RendererCoordinator', 'render: already rendering, deferring as pending');
 			this.pendingRenderRequest = true;
 			return;
 		}
@@ -252,6 +262,7 @@ export class RendererCoordinator implements MindMapRenderer {
 		let root: d3.HierarchyNode<MindMapNode>;
 
 		try {
+			logger.debug('RendererCoordinator', 'render: about to clear container');
 			// Clear container - use D3 method instead of innerHTML, preserve object references
 			d3.select(container).selectAll('*').remove();
 
@@ -262,6 +273,19 @@ export class RendererCoordinator implements MindMapRenderer {
 				.style('position', 'relative');
 
 			this.currentSvg = svg;
+
+			logger.debugLazy('RendererCoordinator', 'render: SVG created', () => {
+				const svgEl = svg.node() as SVGSVGElement | null;
+				if (!svgEl) return { svgCreated: false };
+				const r = svgEl.getBoundingClientRect();
+				const containerRect = container.getBoundingClientRect();
+				return {
+					svgRect: { width: r.width, height: r.height, top: r.top, left: r.left },
+					containerRect: { width: containerRect.width, height: containerRect.height, top: containerRect.top, left: containerRect.left },
+					svgWidth: svgEl.getAttribute('width'),
+					svgHeight: svgEl.getAttribute('height')
+				};
+			});
 
 			// Create content group
 			this.currentContent = svg.append('g')
@@ -305,6 +329,12 @@ export class RendererCoordinator implements MindMapRenderer {
 			// Render nodes
 			this.renderNodes(root, offsetX, offsetY);
 
+			logger.debugLazy('RendererCoordinator', 'render: nodes & links rendered', () => ({
+				nodeCount: root.descendants().length,
+				leafCount: root.leaves().length,
+				depth: root.height
+			}));
+
 			// Restore view state
 			this.restoreViewState();
 
@@ -316,6 +346,7 @@ export class RendererCoordinator implements MindMapRenderer {
 
 			// Handle pending render request
 			if (this.pendingRenderRequest) {
+				logger.debug('RendererCoordinator', 'render: pending request detected, scheduling nested render');
 				this.pendingRenderRequest = false;
 				setTimeout(() => {
 					this.render(container, data);
@@ -332,10 +363,14 @@ export class RendererCoordinator implements MindMapRenderer {
 
 			// Restore UI state (if there's a selected node, show toolbar)
 			this.restoreSelectionUI();
+
+			logger.snapshotViewport('RendererCoordinator', 'render: end');
 		}
 	}
 
 	destroy(): void {
+		Logger.getInstance().debug('RendererCoordinator', 'destroy: called');
+
 		// Destroy all modules
 		this.mobileToolbar?.destroy();
 		this.buttonRenderer.destroy();
@@ -575,7 +610,6 @@ export class RendererCoordinator implements MindMapRenderer {
 			newLevel: newNode.level,
 			parentText: node.data.text
 		});
-		void logger.dumpToClipboard();
 
 		// Auto enter edit mode
 		// Delayed execution to ensure DOM has updated
@@ -624,7 +658,6 @@ export class RendererCoordinator implements MindMapRenderer {
 			newLevel: newNode.level,
 			afterText: node.data.text
 		});
-		void logger.dumpToClipboard();
 
 		// Auto enter edit mode
 		setTimeout(() => {

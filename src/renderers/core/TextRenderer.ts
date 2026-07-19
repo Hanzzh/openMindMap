@@ -3,6 +3,7 @@ import { MindMapNode } from '../../interfaces/mindmap-interfaces';
 import { TextMeasurer } from '../../utils/TextMeasurer';
 import { MindMapConfig } from '../../config/types';
 import { EditingState } from '../../interfaces/mindmap-interfaces';
+import { Logger } from '../../utils/logger';
 
 /**
  * 文本渲染器
@@ -146,6 +147,14 @@ export class TextRenderer {
 		// keydown: Enter保存/Escape取消/Backspace处理换行
 		textDivNode.addEventListener("keydown", (event) => {
 			if (textDivNode.contentEditable === "true") {
+				// Debug: 记录关键按键（Enter/Escape/Backspace），普通字符不记录避免噪音
+				if (event.key === "Enter" || event.key === "Escape" || event.key === "Backspace") {
+					Logger.getInstance().debug('TextRenderer', 'keydown: special key', {
+						key: event.key,
+						altKey: event.altKey,
+						isMobile: config?.isMobile
+					});
+				}
 				if (event.key === "Enter") {
 					// 移动端：Enter 键主动插入换行符（不依赖默认行为）
 					if (config?.isMobile) {
@@ -245,13 +254,30 @@ export class TextRenderer {
 		});
 
 		// blur: 自动保存
+		// 调试重点：iPad 键盘弹出可能触发瞬态 blur，需记录 blur 瞬间与 150ms 后的状态对比
 		textDivNode.addEventListener("blur", () => {
+			const logger = Logger.getInstance();
+
+			logger.snapshotViewport('TextRenderer', 'blur: fired', {
+				contentEditable: textDivNode.contentEditable,
+				isEditingElement: editingState?.editElement === textDivNode,
+				textContent: textDivNode.textContent?.slice(0, 50)
+			});
+
 			if (textDivNode.contentEditable === "true" && editingState?.editElement === textDivNode) {
 
 				// 延迟保存，给点击其他元素留出时间
 				setTimeout(() => {
+					logger.snapshotViewport('TextRenderer', 'blur: 150ms timer fired, checking state', {
+						isStillEditingElement: editingState?.editElement === textDivNode,
+						activeIsEditElement: document.activeElement === textDivNode
+					});
+
 					if (editingState?.editElement === textDivNode) {
+						logger.debug('TextRenderer', 'blur: triggering saveNodeText');
 						parentContext.saveNodeText?.();
+					} else {
+						logger.debug('TextRenderer', 'blur: editElement changed, skipping save');
 					}
 				}, 150);
 			}
