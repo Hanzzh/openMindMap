@@ -27,6 +27,7 @@ import { Notice } from 'obsidian';
 import { MindMapNode, NodeDimensions } from '../interfaces/mindmap-interfaces';
 import { MindMapService } from '../services/mindmap-service';
 import { MindMapMessages } from '../i18n/types';
+import { Logger } from '../utils/logger';
 
 /**
  * AI Assistant callback interface
@@ -340,6 +341,13 @@ export class AIAssistant {
 		}
 
 		try {
+			const logger = Logger.getInstance();
+			logger.debug('AIAssistant', 'createChildFromSuggestion: begin', {
+				parentText: parentNode.data.text,
+				parentLevel: parentNode.data.level,
+				suggestion
+			});
+
 			// Create child node
 			this.mindMapService.createChildNode(parentNode.data, suggestion);
 
@@ -365,8 +373,18 @@ export class AIAssistant {
 				{ nodeText: suggestion }
 			));
 
+			logger.debug('AIAssistant', 'createChildFromSuggestion: node created', {
+				parentText: parentNode.data.text,
+				suggestion
+			});
+			void logger.dumpToClipboard();
+
 			// No longer auto-close panel, allow user to continue selecting other suggestions
 		} catch (error) {
+			Logger.getInstance().error('AIAssistant', 'createChildFromSuggestion failed', {
+				suggestion,
+				error: error instanceof Error ? error.message : String(error)
+			});
 			new Notice(this.messages.format(
 				this.messages.notices.nodeCreateFailed || `Failed to create node: {error}`,
 				{ error: error instanceof Error ? error.message : String(error) }

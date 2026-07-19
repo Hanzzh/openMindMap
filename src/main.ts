@@ -7,6 +7,7 @@ import { ConfigManager } from './config/config-manager';
 import { MindMapConfig } from './config/types';
 import { AIClient, AIConfiguration, TestConnectionResult } from './utils/ai-client';
 import { EncryptionUtil } from './utils/encryption';
+import { Logger } from './utils/logger';
 import { createI18nManager, MindMapMessages } from './i18n';
 
 export interface MindMapSettings {
@@ -18,6 +19,7 @@ export interface MindMapSettings {
 	openaiApiKeyEncrypted: boolean;
 	aiSystemMessage: string;
 	aiPromptTemplate: string;
+	debugMode: boolean;
 }
 
 const DEFAULT_SETTINGS: MindMapSettings = {
@@ -41,7 +43,8 @@ Requirements:
 3. Logically connected to the current node
 4. Do not duplicate existing content
 
-Please return directly in JSON array format, for example: ["suggestion1", "suggestion2", "suggestion3"]`
+Please return directly in JSON array format, for example: ["suggestion1", "suggestion2", "suggestion3"]`,
+	debugMode: false
 }
 
 const MIND_MAP_VIEW_TYPE = "mind-map-view";
@@ -242,6 +245,9 @@ export default class MindMapPlugin extends Plugin {
 			model: this.settings.openaiModel
 		};
 		this.aiClient = new AIClient(aiConfig);
+
+		// Sync Logger debug mode with loaded setting
+		Logger.getInstance().setDebugEnabled(this.settings.debugMode);
 	}
 
 	async saveSettings() {
@@ -1121,6 +1127,28 @@ class MindMapSettingTab extends PluginSettingTab {
 					// Reload the settings page to show updated values
 					this.display();
 					new Notice(this.plugin.messages.notices.promptsReset);
+				}));
+
+		// === Debug Configuration ===
+		new Setting(containerEl).setName('Debug').setHeading();
+		containerEl.createEl('p', {
+			text: 'When enabled, the plugin collects verbose logs and copies them to your clipboard each time a node is added (child, sibling, AI suggestion, or paste).',
+			cls: 'setting-item-description'
+		});
+
+		new Setting(containerEl)
+			.setName('Debug mode')
+			.setDesc('Toggle verbose logging. Logs are copied to the clipboard after every node creation.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.debugMode)
+				.onChange(async (value) => {
+					this.plugin.settings.debugMode = value;
+					await this.plugin.saveSettings();
+					Logger.getInstance().setDebugEnabled(value);
+					Logger.getInstance().clear();
+					new Notice(value
+						? 'Debug mode enabled. Logs will be copied to clipboard when nodes are added.'
+						: 'Debug mode disabled.');
 				}));
 	}
 }

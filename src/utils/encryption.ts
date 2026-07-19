@@ -3,6 +3,8 @@
  * Uses Web Crypto API with AES-GCM (256-bit keys)
  */
 
+import { Logger } from './logger';
+
 export class EncryptionUtil {
 	private static keyPromise: Promise<CryptoKey> | null = null;
 	private static deviceInfo = '';
@@ -142,7 +144,7 @@ export class EncryptionUtil {
 			return new TextDecoder().decode(decryptedData);
 		} catch (error) {
 			// Decryption should not fail silently - throw error to indicate problem
-			console.error('Failed to decrypt API key:', error);
+			Logger.getInstance().error('EncryptionUtil', 'Failed to decrypt API key', error);
 			throw new Error('Failed to decrypt API key. Please re-enter your API key in settings.');
 		}
 	}

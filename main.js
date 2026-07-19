@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => MindMapPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // node_modules/d3-dispatch/src/dispatch.js
 var noop = { value: () => {
@@ -3305,6 +3305,175 @@ var UndoManager = class {
   }
 };
 
+// src/utils/logger.ts
+var import_obsidian = require("obsidian");
+var MAX_BUFFER_SIZE = 1e3;
+var Logger = class _Logger {
+  constructor() {
+    this.debugEnabled = false;
+    this.buffer = [];
+  }
+  static getInstance() {
+    if (!_Logger.instance) {
+      _Logger.instance = new _Logger();
+    }
+    return _Logger.instance;
+  }
+  /** Enable or disable debug mode. When disabled, debug/info entries are skipped. */
+  setDebugEnabled(enabled) {
+    this.debugEnabled = enabled;
+    const msg = enabled ? "[Logger] Debug mode enabled \u2014 logs will be buffered and copied to clipboard on node creation." : "[Logger] Debug mode disabled.";
+    console.info(msg);
+    if (enabled) {
+      this.info("Logger", "Debug mode enabled.");
+    }
+  }
+  isDebugEnabled() {
+    return this.debugEnabled;
+  }
+  /** Debug-level log. Only buffered when debug mode is on. */
+  debug(tag, message, data) {
+    if (!this.debugEnabled) return;
+    this.pushEntry("debug", tag, message, data);
+    console.debug(`[${tag}] ${message}`, data !== void 0 ? data : "");
+  }
+  /** Info-level log. Only buffered when debug mode is on. */
+  info(tag, message, data) {
+    if (!this.debugEnabled) return;
+    this.pushEntry("info", tag, message, data);
+    console.info(`[${tag}] ${message}`, data !== void 0 ? data : "");
+  }
+  /** Warning. Always printed to console; buffered only when debug mode is on. */
+  warn(tag, message, data) {
+    if (this.debugEnabled) {
+      this.pushEntry("warn", tag, message, data);
+    }
+    console.warn(`[${tag}] ${message}`, data !== void 0 ? data : "");
+  }
+  /** Error. Always printed to console; buffered only when debug mode is on. */
+  error(tag, message, data) {
+    if (this.debugEnabled) {
+      this.pushEntry("error", tag, message, data);
+    }
+    console.error(`[${tag}] ${message}`, data !== void 0 ? data : "");
+  }
+  /** Clear the in-memory log buffer without exporting. */
+  clear() {
+    this.buffer = [];
+  }
+  /** Returns the current buffered entries (copy). */
+  getEntries() {
+    return this.buffer.slice();
+  }
+  /**
+   * Dump the accumulated log buffer to the system clipboard.
+   * Shows a Notice on success or failure. Clears the buffer after a successful copy.
+   *
+   * @returns true if the clipboard write succeeded.
+   */
+  async dumpToClipboard() {
+    if (!this.debugEnabled) {
+      return false;
+    }
+    if (this.buffer.length === 0) {
+      new import_obsidian.Notice("Debug log is empty.");
+      return true;
+    }
+    const text = this.formatEntries(this.buffer);
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        this.writeViaTextarea(text);
+      }
+      new import_obsidian.Notice(`Debug logs copied to clipboard (${this.buffer.length} entries).`);
+      this.buffer = [];
+      return true;
+    } catch (error) {
+      console.error("[Logger] Failed to copy logs to clipboard:", error);
+      new import_obsidian.Notice("Failed to copy debug logs to clipboard.");
+      return false;
+    }
+  }
+  pushEntry(level, tag, message, data) {
+    const entry = {
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      level,
+      tag,
+      message,
+      data
+    };
+    this.buffer.push(entry);
+    if (this.buffer.length > MAX_BUFFER_SIZE) {
+      this.buffer.shift();
+    }
+  }
+  formatEntries(entries) {
+    const header = `# openMindMap debug log
+# Exported: ${(/* @__PURE__ */ new Date()).toISOString()}
+# Entries: ${entries.length}
+# Debug mode: ${this.debugEnabled ? "ON" : "OFF"}
+
+`;
+    const lines = entries.map((entry) => {
+      const base = `${entry.timestamp} [${entry.level.toUpperCase()}] [${entry.tag}] ${entry.message}`;
+      if (entry.data === void 0) {
+        return base;
+      }
+      let dataStr;
+      try {
+        dataStr = typeof entry.data === "string" ? entry.data : JSON.stringify(entry.data, this.jsonReplacer, 2);
+      } catch (e) {
+        dataStr = String(entry.data);
+      }
+      return `${base}
+  data: ${dataStr}`;
+    });
+    return header + lines.join("\n") + "\n";
+  }
+  /**
+   * JSON.stringify replacer that handles circular references and Error objects.
+   */
+  jsonReplacer(_key, value) {
+    if (value instanceof Error) {
+      return {
+        name: value.name,
+        message: value.message,
+        stack: value.stack
+      };
+    }
+    if (typeof value === "object" && value !== null) {
+      const node = value;
+      if ("parent" in node && "children" in node && typeof node.children === "object") {
+        const stripped = {};
+        for (const k of Object.keys(value)) {
+          if (k === "parent") {
+            stripped.parent = "[MindMapNode]";
+          } else {
+            stripped[k] = value[k];
+          }
+        }
+        return stripped;
+      }
+    }
+    return value;
+  }
+  writeViaTextarea(text) {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand("copy");
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  }
+};
+
 // src/constants/mindmap-constants.ts
 var MINDMAP_IDENTIFIER = "#mindmap";
 var MARKDOWN_EXTENSION = "md";
@@ -4962,7 +5131,7 @@ var MouseInteraction = class {
         return;
       }
       if (isDragging && canvasEnabled) {
-        console.warn("[MouseInteraction] \u{1F6A8} CANVAS DRAG EXECUTED!", {
+        Logger.getInstance().debug("MouseInteraction", "canvas drag executed", {
           target: target.tagName,
           isDragging,
           canvasEnabled,
@@ -5627,7 +5796,7 @@ var InteractionManager = class {
 };
 
 // src/features/AIAssistant.ts
-var import_obsidian = require("obsidian");
+var import_obsidian2 = require("obsidian");
 var AIAssistant = class {
   constructor(mindMapService, messages, callbacks) {
     // Selected suggestions tracking
@@ -5681,16 +5850,16 @@ var AIAssistant = class {
   async triggerSuggestions(node) {
     var _a;
     if (!this.mindMapService) {
-      new import_obsidian.Notice(this.messages.errors.serviceNotAvailable);
+      new import_obsidian2.Notice(this.messages.errors.serviceNotAvailable);
       return;
     }
     const nodeText = ((_a = node.data.text) == null ? void 0 : _a.trim()) || "";
     if (!nodeText) {
-      new import_obsidian.Notice(this.messages.errors.emptyNodeError);
+      new import_obsidian2.Notice(this.messages.errors.emptyNodeError);
       return;
     }
     if (!this.loadingNotice) {
-      this.loadingNotice = new import_obsidian.Notice(this.messages.format(
+      this.loadingNotice = new import_obsidian2.Notice(this.messages.format(
         this.messages.notices.aiAnalyzing,
         { nodeText }
       ), 3e4);
@@ -5704,7 +5873,7 @@ var AIAssistant = class {
       const suggestions = await this.mindMapService.suggestChildNodes(node.data);
       this.loadingNotice = null;
       if (suggestions.length === 0) {
-        new import_obsidian.Notice(this.messages.notices.aiNoSuggestions);
+        new import_obsidian2.Notice(this.messages.notices.aiNoSuggestions);
         return;
       }
       this.showSuggestionsPanel(node, suggestions);
@@ -5714,7 +5883,7 @@ var AIAssistant = class {
         this.messages.notices.aiFailed,
         { error: error instanceof Error ? error.message : String(error) }
       );
-      new import_obsidian.Notice(errorMsg);
+      new import_obsidian2.Notice(errorMsg);
     }
   }
   /**
@@ -5780,7 +5949,7 @@ var AIAssistant = class {
         if (!this.selectedSuggestions.has(suggestion)) {
           this.createChildFromSuggestion(node, suggestion, item);
         } else {
-          new import_obsidian.Notice(this.messages.format(
+          new import_obsidian2.Notice(this.messages.format(
             this.messages.notices.alreadyAdded || `Already added: {nodeText}`,
             { nodeText: suggestion }
           ));
@@ -5810,13 +5979,19 @@ var AIAssistant = class {
   createChildFromSuggestion(parentNode, suggestion, listItemElement) {
     var _a, _b;
     if (this.selectedSuggestions.has(suggestion)) {
-      new import_obsidian.Notice(this.messages.format(
+      new import_obsidian2.Notice(this.messages.format(
         this.messages.notices.alreadyAdded || `Already added: {nodeText}`,
         { nodeText: suggestion }
       ));
       return;
     }
     try {
+      const logger = Logger.getInstance();
+      logger.debug("AIAssistant", "createChildFromSuggestion: begin", {
+        parentText: parentNode.data.text,
+        parentLevel: parentNode.data.level,
+        suggestion
+      });
       this.mindMapService.createChildNode(parentNode.data, suggestion);
       this.selectedSuggestions.add(suggestion);
       (_b = (_a = this.callbacks).onNodeCreated) == null ? void 0 : _b.call(_a);
@@ -5827,12 +6002,21 @@ var AIAssistant = class {
           checkmark.textContent = "\u2713";
         }
       }
-      new import_obsidian.Notice(this.messages.format(
+      new import_obsidian2.Notice(this.messages.format(
         this.messages.notices.nodeCreated || `Created: {nodeText}`,
         { nodeText: suggestion }
       ));
+      logger.debug("AIAssistant", "createChildFromSuggestion: node created", {
+        parentText: parentNode.data.text,
+        suggestion
+      });
+      void logger.dumpToClipboard();
     } catch (error) {
-      new import_obsidian.Notice(this.messages.format(
+      Logger.getInstance().error("AIAssistant", "createChildFromSuggestion failed", {
+        suggestion,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      new import_obsidian2.Notice(this.messages.format(
         this.messages.notices.nodeCreateFailed || `Failed to create node: {error}`,
         { error: error instanceof Error ? error.message : String(error) }
       ));
@@ -5859,7 +6043,7 @@ var AIAssistant = class {
 };
 
 // src/features/NodeEditor.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 var NodeEditor = class {
   constructor(config, messages, callbacks = {}, editingState) {
     this.config = config;
@@ -6067,7 +6251,7 @@ var NodeEditor = class {
    * Show root node edit warning
    */
   showRootNodeEditWarning() {
-    new import_obsidian2.Notice(this.messages.validation.cannotEditRoot, 3e3);
+    new import_obsidian3.Notice(this.messages.validation.cannotEditRoot, 3e3);
   }
   /**
    * Show validation error
@@ -6095,7 +6279,7 @@ var NodeEditor = class {
 };
 
 // src/features/ClipboardManager.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 var ClipboardManager = class {
   constructor(mindMapService, messages, callbacks = {}) {
     this.mindMapService = mindMapService;
@@ -6174,6 +6358,12 @@ var ClipboardManager = class {
    */
   pasteSubtree(node, clipboardText) {
     var _a, _b, _c, _d;
+    const logger = Logger.getInstance();
+    logger.debug("ClipboardManager", "pasteSubtree: begin", {
+      parentText: node.data.text,
+      parentLevel: node.data.level,
+      clipboardLength: clipboardText.length
+    });
     const subtreeRoot = this.mindMapService.createSubtreeFromMarkdown(
       clipboardText,
       node.data.level
@@ -6184,8 +6374,15 @@ var ClipboardManager = class {
       (_b = (_a = this.callbacks).clearSelection) == null ? void 0 : _b.call(_a);
       subtreeRoot.selected = true;
       (_d = (_c = this.callbacks).onDataUpdated) == null ? void 0 : _d.call(_c);
+      logger.debug("ClipboardManager", "pasteSubtree: subtree created", {
+        parentText: node.data.text,
+        rootText: subtreeRoot.text,
+        rootChildren: subtreeRoot.children.length
+      });
+      void logger.dumpToClipboard();
       return true;
     } else {
+      logger.debug("ClipboardManager", "pasteSubtree: markdown parse failed, falling back to plain text");
       return this.pasteText(node, clipboardText);
     }
   }
@@ -6194,24 +6391,36 @@ var ClipboardManager = class {
    */
   pasteText(node, clipboardText) {
     var _a, _b, _c, _d;
+    const logger = Logger.getInstance();
+    logger.debug("ClipboardManager", "pasteText: begin", {
+      parentText: node.data.text,
+      parentLevel: node.data.level,
+      clipboardLength: clipboardText.length
+    });
     const truncatedText = clipboardText.substring(0, VALIDATION_CONSTANTS.MAX_TEXT_LENGTH);
     const childNode = this.mindMapService.createChildNode(node.data, truncatedText);
     (_b = (_a = this.callbacks).clearSelection) == null ? void 0 : _b.call(_a);
     childNode.selected = true;
     (_d = (_c = this.callbacks).onDataUpdated) == null ? void 0 : _d.call(_c);
+    logger.debug("ClipboardManager", "pasteText: node created", {
+      parentText: node.data.text,
+      newText: childNode.text,
+      newLevel: childNode.level
+    });
+    void logger.dumpToClipboard();
     return true;
   }
   /**
    * Show success notice
    */
   showSuccessNotice(message) {
-    new import_obsidian3.Notice(message, 2e3);
+    new import_obsidian4.Notice(message, 2e3);
   }
   /**
    * Show error notice
    */
   showErrorNotice(message) {
-    new import_obsidian3.Notice(message, 3e3);
+    new import_obsidian4.Notice(message, 3e3);
   }
 };
 
@@ -6757,6 +6966,12 @@ var RendererCoordinator = class {
     }
   }
   handleAddChildNode(node) {
+    const logger = Logger.getInstance();
+    logger.debug("RendererCoordinator", "handleAddChildNode: begin", {
+      parentText: node.data.text,
+      parentLevel: node.data.level,
+      existingChildren: node.data.children.length
+    });
     if (this.currentData) {
       this.undoManager.saveSnapshot(this.currentData);
     }
@@ -6764,11 +6979,24 @@ var RendererCoordinator = class {
     this.clearSelection();
     newNode.selected = true;
     this.triggerDataUpdate();
+    logger.debug("RendererCoordinator", "handleAddChildNode: node created", {
+      newText: newNode.text,
+      newLevel: newNode.level,
+      parentText: node.data.text
+    });
+    void logger.dumpToClipboard();
     setTimeout(() => {
       this.editNewNode();
     }, 150);
   }
   handleAddSiblingNode(node) {
+    var _a;
+    const logger = Logger.getInstance();
+    logger.debug("RendererCoordinator", "handleAddSiblingNode: begin", {
+      afterText: node.data.text,
+      afterLevel: node.data.level,
+      parentText: (_a = node.data.parent) == null ? void 0 : _a.text
+    });
     if (this.currentData) {
       this.undoManager.saveSnapshot(this.currentData);
     }
@@ -6776,10 +7004,19 @@ var RendererCoordinator = class {
       node.data,
       "New Node"
     );
-    if (!newNode) return;
+    if (!newNode) {
+      logger.warn("RendererCoordinator", "handleAddSiblingNode: cannot create sibling for root node");
+      return;
+    }
     this.clearSelection();
     newNode.selected = true;
     this.triggerDataUpdate();
+    logger.debug("RendererCoordinator", "handleAddSiblingNode: node created", {
+      newText: newNode.text,
+      newLevel: newNode.level,
+      afterText: node.data.text
+    });
+    void logger.dumpToClipboard();
     setTimeout(() => {
       this.editNewNode();
     }, 150);
@@ -6877,7 +7114,7 @@ var RendererCoordinator = class {
       }
     });
     if (selectedCount > 1) {
-      console.warn(`[Selection] Found ${selectedCount} selected nodes, clearing all except first`);
+      Logger.getInstance().warn("Selection", `Found ${selectedCount} selected nodes, clearing all except first`);
       this.currentData.allNodes.forEach((node) => {
         if (node !== firstSelected && node.selected) {
           node.selected = false;
@@ -7290,10 +7527,10 @@ var RendererManager = class {
 };
 
 // src/services/mindmap-service.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/handlers/file-handler.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 var D3FileHandler = class {
   constructor(app) {
     this.app = app;
@@ -7309,7 +7546,7 @@ var D3FileHandler = class {
       const content = await this.app.vault.read(file);
       return isMindMapFile(content, file.extension);
     } catch (error) {
-      console.error("Failed to check if file is mind map:", file.path, error);
+      Logger.getInstance().error("D3FileHandler", "Failed to check if file is mind map", { path: file.path, error });
       return false;
     }
   }
@@ -7343,7 +7580,7 @@ var D3FileHandler = class {
     try {
       const newContent = generateMarkdownFromNodes(rootNode);
       const file = this.app.vault.getAbstractFileByPath(filePath);
-      if (file instanceof import_obsidian4.TFile) {
+      if (file instanceof import_obsidian5.TFile) {
         await this.app.vault.process(file, () => {
           return newContent;
         });
@@ -7921,12 +8158,12 @@ var MindMapService = class {
       return false;
     }
     if (nodeToDelete.level === 0) {
-      new import_obsidian5.Notice(`\u26A0\uFE0F ${this.messages.notices.cannotDeleteRoot}`, 3e3);
+      new import_obsidian6.Notice(`\u26A0\uFE0F ${this.messages.notices.cannotDeleteRoot}`, 3e3);
       return false;
     }
     const parent = nodeToDelete.parent;
     if (!parent) {
-      new import_obsidian5.Notice(`\u26A0\uFE0F ${this.messages.notices.cannotDeleteNoParent}`, 3e3);
+      new import_obsidian6.Notice(`\u26A0\uFE0F ${this.messages.notices.cannotDeleteNoParent}`, 3e3);
       return false;
     }
     const childIndex = parent.children.indexOf(nodeToDelete);
@@ -8426,7 +8663,7 @@ var ConfigManager = class {
 };
 
 // src/utils/ai-client.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/utils/ai-prompts.ts
 var AIPrompts = class {
@@ -8513,7 +8750,7 @@ var AIClient = class {
     }
     try {
       const apiUrl = `${this.config.apiBaseUrl}/chat/completions`;
-      const response = await (0, import_obsidian6.requestUrl)({
+      const response = await (0, import_obsidian7.requestUrl)({
         url: apiUrl,
         method: "POST",
         headers: {
@@ -8602,7 +8839,7 @@ Error: ${errorMessage}${errorDetails}`
       messages.push({ role: "system", content: systemMessage });
     }
     messages.push({ role: "user", content: userMessage });
-    const response = await (0, import_obsidian6.requestUrl)({
+    const response = await (0, import_obsidian7.requestUrl)({
       url: apiUrl,
       method: "POST",
       headers: {
@@ -8902,7 +9139,7 @@ var EncryptionUtil = class {
       );
       return new TextDecoder().decode(decryptedData);
     } catch (error) {
-      console.error("Failed to decrypt API key:", error);
+      Logger.getInstance().error("EncryptionUtil", "Failed to decrypt API key", error);
       throw new Error("Failed to decrypt API key. Please re-enter your API key in settings.");
     }
   }
@@ -8963,10 +9200,11 @@ Requirements:
 3. Logically connected to the current node
 4. Do not duplicate existing content
 
-Please return directly in JSON array format, for example: ["suggestion1", "suggestion2", "suggestion3"]`
+Please return directly in JSON array format, for example: ["suggestion1", "suggestion2", "suggestion3"]`,
+  debugMode: false
 };
 var MIND_MAP_VIEW_TYPE = "mind-map-view";
-var MindMapPlugin = class extends import_obsidian7.Plugin {
+var MindMapPlugin = class extends import_obsidian8.Plugin {
   async onload() {
     await this.loadSettings();
     const vaultName = this.app.vault.getName();
@@ -8974,7 +9212,7 @@ var MindMapPlugin = class extends import_obsidian7.Plugin {
     EncryptionUtil.initialize(deviceInfo);
     let isMobileDevice;
     if (this.settings.deviceType === "auto") {
-      isMobileDevice = import_obsidian7.Platform.isMobile;
+      isMobileDevice = import_obsidian8.Platform.isMobile;
     } else {
       isMobileDevice = this.settings.deviceType === "mobile";
     }
@@ -8999,7 +9237,7 @@ var MindMapPlugin = class extends import_obsidian7.Plugin {
       id: "open-current",
       name: "Open current file as mind map",
       checkCallback: (checking) => {
-        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
+        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian8.MarkdownView);
         if (markdownView) {
           if (!checking) {
             void this.activateView();
@@ -9093,6 +9331,7 @@ var MindMapPlugin = class extends import_obsidian7.Plugin {
       model: this.settings.openaiModel
     };
     this.aiClient = new AIClient(aiConfig);
+    Logger.getInstance().setDebugEnabled(this.settings.debugMode);
   }
   async saveSettings() {
     const settingsToSave = { ...this.settings };
@@ -9116,7 +9355,7 @@ var MindMapPlugin = class extends import_obsidian7.Plugin {
   }
   // Replace current view with mind map view
   async replaceWithMindMapView(file) {
-    const activeView = this.app.workspace.getActiveViewOfType(import_obsidian7.FileView);
+    const activeView = this.app.workspace.getActiveViewOfType(import_obsidian8.FileView);
     if (activeView && activeView.leaf) {
       await activeView.leaf.setViewState({
         type: MIND_MAP_VIEW_TYPE,
@@ -9156,20 +9395,20 @@ var MindMapPlugin = class extends import_obsidian7.Plugin {
     try {
       let targetFolderPath = "";
       if (contextFile) {
-        if (contextFile instanceof import_obsidian7.TFile) {
+        if (contextFile instanceof import_obsidian8.TFile) {
           targetFolderPath = ((_a = contextFile.parent) == null ? void 0 : _a.path) || "";
-        } else if (contextFile instanceof import_obsidian7.TFolder) {
+        } else if (contextFile instanceof import_obsidian8.TFolder) {
           targetFolderPath = contextFile.path;
         }
       }
       let fileName = "Untitled mindmap.md";
       let counter = 1;
-      let fullPath = (0, import_obsidian7.normalizePath)(
+      let fullPath = (0, import_obsidian8.normalizePath)(
         targetFolderPath ? `${targetFolderPath}/${fileName}` : fileName
       );
       while (this.app.vault.getAbstractFileByPath(fullPath)) {
         fileName = `Untitled mindmap ${counter}.md`;
-        fullPath = (0, import_obsidian7.normalizePath)(
+        fullPath = (0, import_obsidian8.normalizePath)(
           targetFolderPath ? `${targetFolderPath}/${fileName}` : fileName
         );
         counter++;
@@ -9177,26 +9416,26 @@ var MindMapPlugin = class extends import_obsidian7.Plugin {
       const content = "#mindmap\n";
       await this.app.vault.create(fullPath, content);
       const newFile = this.app.vault.getAbstractFileByPath(fullPath);
-      if (newFile instanceof import_obsidian7.TFile) {
+      if (newFile instanceof import_obsidian8.TFile) {
         await this.app.workspace.getLeaf("tab").openFile(newFile);
         const message = this.messages.format(
           this.messages.notices.fileCreated,
           { fileName: fullPath }
         );
-        new import_obsidian7.Notice(message);
+        new import_obsidian8.Notice(message);
       } else {
-        new import_obsidian7.Notice(this.messages.notices.fileCreateFailed);
+        new import_obsidian8.Notice(this.messages.notices.fileCreateFailed);
       }
     } catch (error) {
       const message = this.messages.format(
         this.messages.notices.fileCreateError,
         { error: error instanceof Error ? error.message : String(error) }
       );
-      new import_obsidian7.Notice(message);
+      new import_obsidian8.Notice(message);
     }
   }
 };
-var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
+var MindMapView = class _MindMapView extends import_obsidian8.ItemView {
   constructor(leaf, mindMapService, config) {
     super(leaf);
     this.filePath = null;
@@ -9235,7 +9474,7 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
     }
     if (filePath) {
       const file = this.app.vault.getAbstractFileByPath(filePath);
-      if (file instanceof import_obsidian7.TFile) {
+      if (file instanceof import_obsidian8.TFile) {
         return file.basename;
       }
       const fileName = filePath.split("/").pop();
@@ -9344,7 +9583,7 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
     try {
       statusEl.textContent = `Loading: ${this.filePath}`;
       const file = this.app.vault.getAbstractFileByPath(this.filePath);
-      if (file instanceof import_obsidian7.TFile) {
+      if (file instanceof import_obsidian8.TFile) {
         statusEl.textContent = "Parsing content...";
         const content = await this.mindMapService.getFileHandler().loadFileContent(file);
         container.empty();
@@ -9424,7 +9663,7 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
     if (this.renderer instanceof RendererCoordinator) {
       const success = this.renderer.undo();
       if (success) {
-        new import_obsidian7.Notice("\u5DF2\u64A4\u9500");
+        new import_obsidian8.Notice("\u5DF2\u64A4\u9500");
       }
     }
   }
@@ -9435,7 +9674,7 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
     if (this.renderer instanceof RendererCoordinator) {
       const success = this.renderer.redo();
       if (success) {
-        new import_obsidian7.Notice("\u5DF2\u91CD\u505A");
+        new import_obsidian8.Notice("\u5DF2\u91CD\u505A");
       }
     }
   }
@@ -9458,7 +9697,7 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
     return Promise.resolve();
   }
 };
-var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
+var MindMapSettingTab = class extends import_obsidian8.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.testButtonHandler = null;
@@ -9480,17 +9719,17 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
       this.testButtonHandler = null;
     }
     containerEl.empty();
-    new import_obsidian7.Setting(containerEl).setName("Main").setHeading();
-    new import_obsidian7.Setting(containerEl).setName("Device").setHeading();
-    new import_obsidian7.Setting(containerEl).setName("Device type").setDesc("Choose how content should be rendered. Auto-detects based on your device.").addDropdown((dropdown) => dropdown.addOption("auto", "Auto-detect").addOption("desktop", "Desktop mode").addOption("mobile", "Mobile mode").setValue(this.plugin.settings.deviceType).onChange((value) => {
+    new import_obsidian8.Setting(containerEl).setName("Main").setHeading();
+    new import_obsidian8.Setting(containerEl).setName("Device").setHeading();
+    new import_obsidian8.Setting(containerEl).setName("Device type").setDesc("Choose how content should be rendered. Auto-detects based on your device.").addDropdown((dropdown) => dropdown.addOption("auto", "Auto-detect").addOption("desktop", "Desktop mode").addOption("mobile", "Mobile mode").setValue(this.plugin.settings.deviceType).onChange((value) => {
       void (async () => {
         this.plugin.settings.deviceType = value;
         await this.plugin.saveSettings();
-        new import_obsidian7.Notice(this.plugin.messages.notices.deviceTypeChanged);
+        new import_obsidian8.Notice(this.plugin.messages.notices.deviceTypeChanged);
       })();
     }));
-    new import_obsidian7.Setting(containerEl).setName("Language").setHeading();
-    new import_obsidian7.Setting(containerEl).setName("Language").setDesc("Choose your preferred language for the plugin interface.").addDropdown((dropdown) => dropdown.addOption("en", "English").addOption("zh", "\u4E2D\u6587").setValue(this.plugin.settings.language || "en").onChange((value) => {
+    new import_obsidian8.Setting(containerEl).setName("Language").setHeading();
+    new import_obsidian8.Setting(containerEl).setName("Language").setDesc("Choose your preferred language for the plugin interface.").addDropdown((dropdown) => dropdown.addOption("en", "English").addOption("zh", "\u4E2D\u6587").setValue(this.plugin.settings.language || "en").onChange((value) => {
       void (async () => {
         this.plugin.settings.language = value;
         await this.plugin.saveSettings();
@@ -9505,10 +9744,10 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
           newMessages.notices.languageChanged,
           { language: languageName }
         );
-        new import_obsidian7.Notice(message);
+        new import_obsidian8.Notice(message);
       })();
     }));
-    new import_obsidian7.Setting(containerEl).setName("AI configuration").setHeading();
+    new import_obsidian8.Setting(containerEl).setName("AI configuration").setHeading();
     containerEl.createEl("p", {
       text: "Configure your AI API to enable intelligent features like automatic node suggestions.",
       cls: "setting-item-description"
@@ -9520,13 +9759,13 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
     securityNotice.appendText(" The encrypted key is stored in ");
     securityNotice.appendChild(codeEl.cloneNode(true));
     securityNotice.appendText(" and can only be decrypted on this device.");
-    new import_obsidian7.Setting(containerEl).setName("OpenAI API base URL").setDesc("the base URL for your OpenAI-compatible API (e.g., https://api.openai.com/v1)").addText((text) => text.setPlaceholder("https://api.openai.com/v1").setValue(this.plugin.settings.openaiApiBaseUrl).onChange((value) => {
+    new import_obsidian8.Setting(containerEl).setName("OpenAI API base URL").setDesc("the base URL for your OpenAI-compatible API (e.g., https://api.openai.com/v1)").addText((text) => text.setPlaceholder("https://api.openai.com/v1").setValue(this.plugin.settings.openaiApiBaseUrl).onChange((value) => {
       void (async () => {
         this.plugin.settings.openaiApiBaseUrl = value;
         await this.plugin.saveSettings();
       })();
     }));
-    new import_obsidian7.Setting(containerEl).setName("API key").setDesc("Your API key").addText((text) => {
+    new import_obsidian8.Setting(containerEl).setName("API key").setDesc("Your API key").addText((text) => {
       text.setPlaceholder("sk-...");
       text.setValue(this.plugin.settings.openaiApiKey);
       text.inputEl.type = "password";
@@ -9542,7 +9781,7 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
         })();
       });
     });
-    new import_obsidian7.Setting(containerEl).setName("Model name").setDesc("The model name to use (e.g., gpt-3.5-turbo, gpt-4, llama2, mistral, etc.)").addText((text) => text.setPlaceholder("gpt-3.5-turbo").setValue(this.plugin.settings.openaiModel).onChange((value) => {
+    new import_obsidian8.Setting(containerEl).setName("Model name").setDesc("The model name to use (e.g., gpt-3.5-turbo, gpt-4, llama2, mistral, etc.)").addText((text) => text.setPlaceholder("gpt-3.5-turbo").setValue(this.plugin.settings.openaiModel).onChange((value) => {
       void (async () => {
         this.plugin.settings.openaiModel = value;
         await this.plugin.saveSettings();
@@ -9583,9 +9822,9 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
         });
         resultEl.textContent = result.message;
         if (result.success) {
-          new import_obsidian7.Notice(this.plugin.messages.notices.apiConnectionSuccess);
+          new import_obsidian8.Notice(this.plugin.messages.notices.apiConnectionSuccess);
         } else {
-          new import_obsidian7.Notice(this.plugin.messages.notices.apiConnectionFailed);
+          new import_obsidian8.Notice(this.plugin.messages.notices.apiConnectionFailed);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -9593,7 +9832,7 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
           cls: "ai-test-result error"
         });
         resultEl.textContent = `\u274C Error: ${errorMessage}`;
-        new import_obsidian7.Notice(this.plugin.messages.notices.connectionTestFailed);
+        new import_obsidian8.Notice(this.plugin.messages.notices.connectionTestFailed);
       } finally {
         if (this.testButton) {
           this.testButton.textContent = "Test connection";
@@ -9602,12 +9841,12 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
       }
     };
     this.testButton.addEventListener("click", this.testButtonHandler);
-    new import_obsidian7.Setting(containerEl).setName("AI prompt configuration").setHeading();
+    new import_obsidian8.Setting(containerEl).setName("AI prompt configuration").setHeading();
     containerEl.createEl("p", {
       text: "Customize how the AI generates suggestions by editing the system message and prompt template.",
       cls: "setting-item-description"
     });
-    new import_obsidian7.Setting(containerEl).setName("AI system message").setDesc("Define the AI assistant role and behavior. This sets the context for all AI interactions.").addTextArea((text) => {
+    new import_obsidian8.Setting(containerEl).setName("AI system message").setDesc("Define the AI assistant role and behavior. This sets the context for all AI interactions.").addTextArea((text) => {
       text.setPlaceholder("You are a helpful mind map assistant...");
       text.setValue(this.plugin.settings.aiSystemMessage);
       text.onChange((value) => {
@@ -9617,7 +9856,7 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
         })();
       });
     });
-    new import_obsidian7.Setting(containerEl).setName("AI prompt template").setDesc("Customize the prompt template for node suggestions. Available variables: {nodeText}, {level}, {parentContext}, {siblingsContext}, {existingChildren}, {centralTopic}").addTextArea((text) => {
+    new import_obsidian8.Setting(containerEl).setName("AI prompt template").setDesc("Customize the prompt template for node suggestions. Available variables: {nodeText}, {level}, {parentContext}, {siblingsContext}, {existingChildren}, {centralTopic}").addTextArea((text) => {
       text.setPlaceholder("Please suggest 3-5 child nodes...");
       text.setValue(this.plugin.settings.aiPromptTemplate);
       text.onChange((value) => {
@@ -9643,12 +9882,24 @@ var MindMapSettingTab = class extends import_obsidian7.PluginSettingTab {
       li.createEl("code", { text: v.code });
       li.appendText(` - ${v.desc}`);
     }
-    new import_obsidian7.Setting(containerEl).setName("Reset prompts").setDesc("Reset prompt templates to default values").addButton((button) => button.setButtonText("Reset to defaults").setWarning().onClick(async () => {
+    new import_obsidian8.Setting(containerEl).setName("Reset prompts").setDesc("Reset prompt templates to default values").addButton((button) => button.setButtonText("Reset to defaults").setWarning().onClick(async () => {
       this.plugin.settings.aiSystemMessage = DEFAULT_SETTINGS.aiSystemMessage;
       this.plugin.settings.aiPromptTemplate = DEFAULT_SETTINGS.aiPromptTemplate;
       await this.plugin.saveSettings();
       this.display();
-      new import_obsidian7.Notice(this.plugin.messages.notices.promptsReset);
+      new import_obsidian8.Notice(this.plugin.messages.notices.promptsReset);
+    }));
+    new import_obsidian8.Setting(containerEl).setName("Debug").setHeading();
+    containerEl.createEl("p", {
+      text: "When enabled, the plugin collects verbose logs and copies them to your clipboard each time a node is added (child, sibling, AI suggestion, or paste).",
+      cls: "setting-item-description"
+    });
+    new import_obsidian8.Setting(containerEl).setName("Debug mode").setDesc("Toggle verbose logging. Logs are copied to the clipboard after every node creation.").addToggle((toggle) => toggle.setValue(this.plugin.settings.debugMode).onChange(async (value) => {
+      this.plugin.settings.debugMode = value;
+      await this.plugin.saveSettings();
+      Logger.getInstance().setDebugEnabled(value);
+      Logger.getInstance().clear();
+      new import_obsidian8.Notice(value ? "Debug mode enabled. Logs will be copied to clipboard when nodes are added." : "Debug mode disabled.");
     }));
   }
 };

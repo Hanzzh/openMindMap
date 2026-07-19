@@ -28,6 +28,7 @@ import { MindMapNode } from '../interfaces/mindmap-interfaces';
 import { MindMapService } from '../services/mindmap-service';
 import { MindMapMessages } from '../i18n';
 import { VALIDATION_CONSTANTS } from '../constants/mindmap-constants';
+import { Logger } from '../utils/logger';
 
 /**
  * Clipboard Manager callback interface
@@ -160,6 +161,13 @@ export class ClipboardManager {
 		node: d3.HierarchyNode<MindMapNode>,
 		clipboardText: string
 	): boolean {
+		const logger = Logger.getInstance();
+		logger.debug('ClipboardManager', 'pasteSubtree: begin', {
+			parentText: node.data.text,
+			parentLevel: node.data.level,
+			clipboardLength: clipboardText.length
+		});
+
 		// Try to create subtree from markdown
 		const subtreeRoot = this.mindMapService.createSubtreeFromMarkdown(
 			clipboardText,
@@ -179,9 +187,17 @@ export class ClipboardManager {
 
 			// Trigger data update
 			this.callbacks.onDataUpdated?.();
+
+			logger.debug('ClipboardManager', 'pasteSubtree: subtree created', {
+				parentText: node.data.text,
+				rootText: subtreeRoot.text,
+				rootChildren: subtreeRoot.children.length
+			});
+			void logger.dumpToClipboard();
 			return true;
 		} else {
 			// If parsing fails, fallback to plain text handling
+			logger.debug('ClipboardManager', 'pasteSubtree: markdown parse failed, falling back to plain text');
 			return this.pasteText(node, clipboardText);
 		}
 	}
@@ -193,6 +209,13 @@ export class ClipboardManager {
 		node: d3.HierarchyNode<MindMapNode>,
 		clipboardText: string
 	): boolean {
+		const logger = Logger.getInstance();
+		logger.debug('ClipboardManager', 'pasteText: begin', {
+			parentText: node.data.text,
+			parentLevel: node.data.level,
+			clipboardLength: clipboardText.length
+		});
+
 		// Limit text length to maximum allowed length
 		const truncatedText = clipboardText.substring(0, VALIDATION_CONSTANTS.MAX_TEXT_LENGTH);
 
@@ -207,6 +230,13 @@ export class ClipboardManager {
 
 		// Trigger data update
 		this.callbacks.onDataUpdated?.();
+
+		logger.debug('ClipboardManager', 'pasteText: node created', {
+			parentText: node.data.text,
+			newText: childNode.text,
+			newLevel: childNode.level
+		});
+		void logger.dumpToClipboard();
 		return true;
 	}
 

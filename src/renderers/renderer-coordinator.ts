@@ -25,6 +25,7 @@ import { MindMapService } from '../services/mindmap-service';
 import { MindMapConfig } from '../config/types';
 import { MindMapMessages } from '../i18n';
 import { UndoManager } from '../managers/UndoManager';
+import { Logger } from '../utils/logger';
 
 // Import core renderers
 import { TextMeasurer } from '../utils/TextMeasurer';
@@ -544,6 +545,13 @@ export class RendererCoordinator implements MindMapRenderer {
 	}
 
 	private handleAddChildNode(node: d3.HierarchyNode<MindMapNode>): void {
+		const logger = Logger.getInstance();
+		logger.debug('RendererCoordinator', 'handleAddChildNode: begin', {
+			parentText: node.data.text,
+			parentLevel: node.data.level,
+			existingChildren: node.data.children.length
+		});
+
 		// Save snapshot (before modification)
 		if (this.currentData) {
 			this.undoManager.saveSnapshot(this.currentData);
@@ -562,6 +570,13 @@ export class RendererCoordinator implements MindMapRenderer {
 
 		this.triggerDataUpdate();
 
+		logger.debug('RendererCoordinator', 'handleAddChildNode: node created', {
+			newText: newNode.text,
+			newLevel: newNode.level,
+			parentText: node.data.text
+		});
+		void logger.dumpToClipboard();
+
 		// Auto enter edit mode
 		// Delayed execution to ensure DOM has updated
 		setTimeout(() => {
@@ -570,6 +585,13 @@ export class RendererCoordinator implements MindMapRenderer {
 	}
 
 	private handleAddSiblingNode(node: d3.HierarchyNode<MindMapNode>): void {
+		const logger = Logger.getInstance();
+		logger.debug('RendererCoordinator', 'handleAddSiblingNode: begin', {
+			afterText: node.data.text,
+			afterLevel: node.data.level,
+			parentText: node.data.parent?.text
+		});
+
 		// Save snapshot (before modification)
 		if (this.currentData) {
 			this.undoManager.saveSnapshot(this.currentData);
@@ -581,7 +603,10 @@ export class RendererCoordinator implements MindMapRenderer {
 			"New Node"
 		);
 
-		if (!newNode) return;
+		if (!newNode) {
+			logger.warn('RendererCoordinator', 'handleAddSiblingNode: cannot create sibling for root node');
+			return;
+		}
 
 		// Clear all selection states
 		this.clearSelection();
@@ -593,6 +618,13 @@ export class RendererCoordinator implements MindMapRenderer {
 
 		// Trigger data update and re-render
 		this.triggerDataUpdate();
+
+		logger.debug('RendererCoordinator', 'handleAddSiblingNode: node created', {
+			newText: newNode.text,
+			newLevel: newNode.level,
+			afterText: node.data.text
+		});
+		void logger.dumpToClipboard();
 
 		// Auto enter edit mode
 		setTimeout(() => {
@@ -743,7 +775,7 @@ export class RendererCoordinator implements MindMapRenderer {
 
 		// If multiple nodes are selected, only keep the first one
 		if (selectedCount > 1) {
-			console.warn(`[Selection] Found ${selectedCount} selected nodes, clearing all except first`);
+			Logger.getInstance().warn('Selection', `Found ${selectedCount} selected nodes, clearing all except first`);
 
 			this.currentData.allNodes.forEach(node => {
 				if (node !== firstSelected && node.selected) {

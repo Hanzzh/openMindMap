@@ -7,6 +7,7 @@
 import { TFile, App } from 'obsidian';
 import { MindMapFileHandler, MindMapData, MindMapNode } from '../interfaces/mindmap-interfaces';
 import { parseMarkdownContent, generateMarkdownFromNodes, isMindMapFile } from '../utils/mindmap-utils';
+import { Logger } from '../utils/logger';
 
 /**
  * Implementation of MindMapFileHandler
@@ -29,7 +30,7 @@ export class D3FileHandler implements MindMapFileHandler {
             const content = await this.app.vault.read(file);
             return isMindMapFile(content, file.extension);
         } catch (error) {
-            console.error('Failed to check if file is mind map:', file.path, error);
+            Logger.getInstance().error('D3FileHandler', 'Failed to check if file is mind map', { path: file.path, error });
             return false;
         }
     }

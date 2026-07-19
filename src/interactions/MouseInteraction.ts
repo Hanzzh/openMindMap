@@ -1,6 +1,7 @@
 import * as d3 from 'd3';
 import { MindMapNode } from '../interfaces/mindmap-interfaces';
 import { MouseInteractionCallbacks, MouseInteractionOptions } from './MouseInteractionCallbacks';
+import { Logger } from '../utils/logger';
 
 /**
  * MouseInteraction - 处理所有鼠标交互逻辑
@@ -137,7 +138,7 @@ export class MouseInteraction {
 
 			if (isDragging && canvasEnabled) {
 				// 关键日志：只有真正执行拖拽时才打印
-				console.warn("[MouseInteraction] 🚨 CANVAS DRAG EXECUTED!", {
+				Logger.getInstance().debug('MouseInteraction', 'canvas drag executed', {
 					target: target.tagName,
 					isDragging,
 					canvasEnabled,
