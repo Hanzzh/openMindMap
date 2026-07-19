@@ -4514,19 +4514,13 @@ var NodeRenderer = class {
       );
       return transform2;
     }).attr("role", "button").attr("aria-label", (d) => `Mind map node: ${d.data.text}`).attr("tabindex", "0").attr("aria-level", (d) => d.depth + 1);
-    const nodeRects = nodeElements.append("rect").attr("class", "node-rect").attr("width", (d) => {
+    const nodeRects = nodeElements.append("rect").attr("class", (d) => d.depth === 0 ? "node-rect node-rect-root" : "node-rect node-rect-child").attr("width", (d) => {
       const dims = this.textMeasurer.getNodeDimensions(d.depth, d.data.text);
       return dims.width;
     }).attr("height", (d) => {
       const dims = this.textMeasurer.getNodeDimensions(d.depth, d.data.text);
       return dims.height;
-    }).attr("x", 0).attr("y", 0).attr("rx", 6).attr("ry", 6).attr("fill", (d) => {
-      if (d.depth === 0) return "#2972f4";
-      return "#f3f5f7";
-    }).attr("stroke", (d) => {
-      if (d.depth === 0) return "#2972f4";
-      return "none";
-    }).attr("stroke-width", (d) => d.depth === 0 ? 2 : 0).style("cursor", "pointer");
+    }).attr("x", 0).attr("y", 0).attr("rx", 6).attr("ry", 6).style("cursor", "pointer");
     nodeRects.classed("selected-rect", (d) => d.data.selected || false);
     return nodeElements;
   }
@@ -4751,7 +4745,7 @@ var TextRenderer = class _TextRenderer {
       const nodeElement = select_default2(this);
       const isCenterAligned = d.depth === 0 || d.depth === 1;
       const textForeignObject = nodeElement.append("foreignObject").attr("class", "node-text-layer").attr("width", dimensions.width).attr("height", dimensions.height).attr("x", 0).attr("y", 0);
-      const textDiv = textForeignObject.append("xhtml:div").attr("contenteditable", "false").attr("class", "node-unified-text").style("width", "100%").style("height", "100%").style("padding", `${dimensions.padding}px`).style("font-size", dimensions.fontSize).style("font-weight", dimensions.fontWeight).style("color", d.depth === 0 ? "#ffffff" : "#000000").style("text-align", isCenterAligned ? "center" : "left").style("outline", "none").style("border", "none").style("background", "transparent").style("word-wrap", "normal").style("white-space", "pre").style("overflow", "visible").style("box-sizing", "border-box").style("font-family", "var(--font-text)").style("line-height", "1.3").style("cursor", "pointer");
+      const textDiv = textForeignObject.append("xhtml:div").attr("contenteditable", "false").attr("class", d.depth === 0 ? "node-unified-text node-text-light" : "node-unified-text node-text-dark").style("width", "100%").style("height", "100%").style("padding", `${dimensions.padding}px`).style("font-size", dimensions.fontSize).style("font-weight", dimensions.fontWeight).style("text-align", isCenterAligned ? "center" : "left").style("outline", "none").style("border", "none").style("word-wrap", "normal").style("white-space", "pre").style("overflow", "visible").style("box-sizing", "border-box").style("font-family", "var(--font-text)").style("line-height", "1.3").style("cursor", "pointer");
       const textDivNode = textDiv.node();
       if (textDivNode) {
         textDivNode.textContent = d.data.text;
@@ -4851,9 +4845,17 @@ var TextRenderer = class _TextRenderer {
       if (textDivNode.contentEditable === "true" && (editingState == null ? void 0 : editingState.editElement) === textDivNode) {
         setTimeout(() => {
           var _a;
-          if ((editingState == null ? void 0 : editingState.editElement) === textDivNode) {
-            (_a = parentContext.saveNodeText) == null ? void 0 : _a.call(parentContext);
+          if ((editingState == null ? void 0 : editingState.editElement) !== textDivNode) return;
+          const active = document.activeElement;
+          const isKeyboardReflowBlur = active === document.body || active === document.documentElement || active === textDivNode;
+          if (isKeyboardReflowBlur) {
+            try {
+              textDivNode.focus({ preventScroll: true });
+            } catch (e) {
+            }
+            return;
           }
+          (_a = parentContext.saveNodeText) == null ? void 0 : _a.call(parentContext);
         }, 150);
       }
     });
@@ -6637,6 +6639,20 @@ var RendererCoordinator = class {
   }
   // ========== Public Methods (Compatibility Interface) ==========
   /**
+   * 检查当前是否处于节点编辑状态
+   * 用于让外部（如 MindMapView）在编辑期间跳过重渲染、处理键盘视口等
+   */
+  isEditing() {
+    return this.nodeEditor.isEditing();
+  }
+  /**
+   * 获取当前正在编辑的 DOM 元素（HTMLDivElement），未编辑时返回 null
+   * 用于 visualViewport 监听器将其 scrollIntoView
+   */
+  getEditingElement() {
+    return this.editingState.editElement;
+  }
+  /**
    * Save current view state
    * Note: This method is kept for compatibility, view state is actually saved automatically in render()
    */
@@ -7155,6 +7171,18 @@ var DesktopTreeRenderer = class {
     return this.rendererCoordinator;
   }
   /**
+   * 检查当前是否处于节点编辑状态（透传到 RendererCoordinator）
+   */
+  isEditing() {
+    return this.rendererCoordinator.isEditing();
+  }
+  /**
+   * 获取当前正在编辑的 DOM 元素，未编辑时返回 null（透传到 RendererCoordinator）
+   */
+  getEditingElement() {
+    return this.rendererCoordinator.getEditingElement();
+  }
+  /**
    * onTextChanged callback getter/setter
    * Exposes RendererCoordinator's callback property for external use
    */
@@ -7266,6 +7294,18 @@ var RendererManager = class {
    */
   isMobile() {
     return this.renderer instanceof MobileTreeRenderer;
+  }
+  /**
+   * 检查当前是否处于节点编辑状态（透传到内部 renderer）
+   */
+  isEditing() {
+    return this.renderer.isEditing();
+  }
+  /**
+   * 获取当前正在编辑的 DOM 元素，未编辑时返回 null（透传到内部 renderer）
+   */
+  getEditingElement() {
+    return this.renderer.getEditingElement();
   }
   /**
    * onTextChanged callback getter/setter
@@ -9204,6 +9244,8 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
     this.isStateLoaded = false;
     this.mindMapData = null;
     this.updateTimer = null;
+    // 键盘视口监听回调引用（用于注销）
+    this.visualViewportHandler = null;
     this.mindMapService = mindMapService;
     this.config = config;
     const i18nManager = createI18nManager(config.language);
@@ -9293,9 +9335,50 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
     this.renderer.onDataRestored = (data) => this.handleDataRestored(data);
     this.clearHistory();
     this.needsContentLoading = true;
+    this.registerVisualViewportHandler();
     if (this.filePath) {
       await this.loadFileContent();
     }
+  }
+  /**
+   * 注册 window.visualViewport.resize 监听器
+   *
+   * 作用：iOS / iPadOS 上软件键盘弹出会改变 visualViewport 尺寸，
+   * 但不会触发 window.resize。若不处理，编辑中的节点可能被键盘遮挡，
+   * 或触发不一致的 reflow 导致节点变黑。
+   *
+   * 策略：键盘弹出时只把当前编辑元素 scrollIntoView，绝不触发重渲染。
+   */
+  registerVisualViewportHandler() {
+    this.unregisterVisualViewportHandler();
+    const vv = window.visualViewport;
+    if (!vv) return;
+    this.visualViewportHandler = () => {
+      var _a, _b, _c, _d;
+      if (!((_b = (_a = this.renderer) == null ? void 0 : _a.isEditing) == null ? void 0 : _b.call(_a))) return;
+      const editEl = (_d = (_c = this.renderer) == null ? void 0 : _c.getEditingElement) == null ? void 0 : _d.call(_c);
+      if (!editEl) return;
+      requestAnimationFrame(() => {
+        try {
+          editEl.scrollIntoView({
+            block: "center",
+            behavior: "auto"
+          });
+        } catch (e) {
+        }
+      });
+    };
+    vv.addEventListener("resize", this.visualViewportHandler);
+    vv.addEventListener("scroll", this.visualViewportHandler);
+  }
+  unregisterVisualViewportHandler() {
+    if (!this.visualViewportHandler) return;
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.removeEventListener("resize", this.visualViewportHandler);
+      vv.removeEventListener("scroll", this.visualViewportHandler);
+    }
+    this.visualViewportHandler = null;
   }
   async loadFileContent() {
     var _a, _b;
@@ -9410,6 +9493,10 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
       const container = this.containerEl.children[1];
       if (!container) return;
       requestAnimationFrame(() => {
+        var _a, _b;
+        if ((_b = (_a = this.renderer) == null ? void 0 : _a.isEditing) == null ? void 0 : _b.call(_a)) {
+          return;
+        }
         container.empty();
         this.renderer.render(container, this.mindMapData);
       });
@@ -9452,6 +9539,7 @@ var MindMapView = class _MindMapView extends import_obsidian7.ItemView {
       clearTimeout(this.updateTimer);
       this.updateTimer = null;
     }
+    this.unregisterVisualViewportHandler();
     if (this.renderer) {
       this.renderer.destroy();
     }

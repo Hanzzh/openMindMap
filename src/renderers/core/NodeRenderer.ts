@@ -68,8 +68,11 @@ export class NodeRenderer {
 			.attr("aria-level", (d) => d.depth + 1);
 
 		// 节点矩形
+		// 颜色由 CSS 通过 class 控制（.node-rect-root / .node-rect-child），
+		// 避免 iOS WKWebView 在键盘弹出/重排时 SVG <rect> 默认 fill（黑色）闪现。
+		// 此处不再设置 fill/stroke 的 inline attr，CSS 优先级足以覆盖默认值。
 		const nodeRects = nodeElements.append("rect")
-			.attr("class", "node-rect")
+			.attr("class", (d) => d.depth === 0 ? "node-rect node-rect-root" : "node-rect node-rect-child")
 			.attr("width", (d) => {
 				const dims = this.textMeasurer.getNodeDimensions(d.depth, d.data.text);
 				return dims.width;
@@ -82,15 +85,6 @@ export class NodeRenderer {
 			.attr("y", 0)
 			.attr("rx", 6)
 			.attr("ry", 6)
-			.attr("fill", (d) => {
-				if (d.depth === 0) return "#2972f4";  // 根节点：蓝色
-				return "#f3f5f7";  // 其他节点：浅灰色
-			})
-			.attr("stroke", (d) => {
-				if (d.depth === 0) return "#2972f4";  // 根节点边框：保持原色
-				return "none";  // 其他节点：无边框
-			})
-			.attr("stroke-width", (d) => d.depth === 0 ? 2 : 0)  // 只有根节点有边框
 			.style("cursor", "pointer");  // 添加手型光标
 
 		// 自动应用选中状态（高亮边框）

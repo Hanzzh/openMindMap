@@ -87,6 +87,20 @@ export class DesktopTreeRenderer implements MindMapRenderer {
 	}
 
 	/**
+	 * 检查当前是否处于节点编辑状态（透传到 RendererCoordinator）
+	 */
+	isEditing(): boolean {
+		return this.rendererCoordinator.isEditing();
+	}
+
+	/**
+	 * 获取当前正在编辑的 DOM 元素，未编辑时返回 null（透传到 RendererCoordinator）
+	 */
+	getEditingElement(): HTMLDivElement | null {
+		return this.rendererCoordinator.getEditingElement();
+	}
+
+	/**
 	 * onTextChanged callback getter/setter
 	 * Exposes RendererCoordinator's callback property for external use
 	 */

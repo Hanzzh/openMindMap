@@ -412,6 +412,8 @@ class MindMapView extends ItemView {
 	private mindMapService: MindMapService;
 	private config: MindMapConfig;
 	private updateTimer: NodeJS.Timeout | null = null;
+	// 键盘视口监听回调引用（用于注销）
+	private visualViewportHandler: (() => void) | null = null;
 
 	constructor(leaf: WorkspaceLeaf, mindMapService: MindMapService, config: MindMapConfig) {
 		super(leaf);
@@ -550,10 +552,63 @@ class MindMapView extends ItemView {
 		// Set flag to indicate content loading is needed
 		this.needsContentLoading = true;
 
+		// 注册 visualViewport 监听器：iOS 键盘弹出/收起时仅调整编辑节点位置，
+		// 不触发完整重渲染（避免 foreignObject + contenteditable 在视口重排时变黑）。
+		this.registerVisualViewportHandler();
+
 		// Try to load content if state is already available
 		if (this.filePath) {
 			await this.loadFileContent();
 		}
+	}
+
+	/**
+	 * 注册 window.visualViewport.resize 监听器
+	 *
+	 * 作用：iOS / iPadOS 上软件键盘弹出会改变 visualViewport 尺寸，
+	 * 但不会触发 window.resize。若不处理，编辑中的节点可能被键盘遮挡，
+	 * 或触发不一致的 reflow 导致节点变黑。
+	 *
+	 * 策略：键盘弹出时只把当前编辑元素 scrollIntoView，绝不触发重渲染。
+	 */
+	private registerVisualViewportHandler(): void {
+		// 先注销旧 handler（防止重复注册）
+		this.unregisterVisualViewportHandler();
+
+		const vv = window.visualViewport;
+		if (!vv) return;
+
+		this.visualViewportHandler = () => {
+			// 仅在当前视图处于编辑态时处理
+			if (!this.renderer?.isEditing?.()) return;
+			const editEl = this.renderer?.getEditingElement?.();
+			if (!editEl) return;
+
+			// 用 requestAnimationFrame 避免在视口动画过程中强制同步布局
+			requestAnimationFrame(() => {
+				try {
+					editEl.scrollIntoView({
+						block: 'center',
+						behavior: 'auto',
+					});
+				} catch {
+					// ignore
+				}
+			});
+		};
+
+		vv.addEventListener('resize', this.visualViewportHandler);
+		vv.addEventListener('scroll', this.visualViewportHandler);
+	}
+
+	private unregisterVisualViewportHandler(): void {
+		if (!this.visualViewportHandler) return;
+		const vv = window.visualViewport;
+		if (vv) {
+			vv.removeEventListener('resize', this.visualViewportHandler);
+			vv.removeEventListener('scroll', this.visualViewportHandler);
+		}
+		this.visualViewportHandler = null;
 	}
 
 	async loadFileContent() {
@@ -737,6 +792,15 @@ class MindMapView extends ItemView {
 
 			// 使用 requestAnimationFrame 确保在下一次渲染帧中执行，避免视觉跳跃
 			requestAnimationFrame(() => {
+				// Guard: 编辑中跳过完整重渲染。
+				// 完整重渲染会 container.empty() 销毁正在编辑的 foreignObject + contenteditable，
+				// 在 iOS / iPadOS 键盘弹出期间会导致焦点循环与视觉异常（节点变黑）。
+				// 文本变更已通过 handleNodeTextChanged 立即更新内存数据，
+				// 编辑退出后下次操作会触发新的渲染；文件保存也独立进行。
+				if (this.renderer?.isEditing?.()) {
+					return;
+				}
+
 				// 清空当前渲染内容
 				container.empty();
 
@@ -790,6 +854,9 @@ class MindMapView extends ItemView {
 			clearTimeout(this.updateTimer);
 			this.updateTimer = null;
 		}
+
+		// 注销 visualViewport 监听器
+		this.unregisterVisualViewportHandler();
 
 		// 销毁渲染器，清理全局键盘监听器
 		// 这对于防止快捷键干扰其他视图非常重要
