@@ -121,18 +121,24 @@ export function isListItem(line: string): boolean {
 
 /**
  * Parse a single markdown list item
+ * Detects the trailing [collapsed:true] marker before text cleaning
  */
-export function parseListItem(line: string): { level: number; content: string; indent: string } | null {
+export function parseListItem(line: string): { level: number; content: string; indent: string; collapsed: boolean } | null {
     const match = line.match(/^(\s*)([*\-+]?\d*\.?)\s+(.+)$/);
     if (!match) return null;
 
-    const [, indent, , content] = match;
+    const [, indent, , rawContent] = match;
     const level = Math.floor(indent.length / 4); // 4 spaces = 1 level
+
+    // 在 cleanTextContent 剥离属性之前探测折叠标记
+    // 只认字面 true；[collapsed:false] 等其他值视为展开
+    const collapsed = /\[collapsed:true\]\s*$/.test(rawContent);
 
     return {
         level,
-        content: cleanTextContent(content),
-        indent
+        content: cleanTextContent(rawContent),
+        indent,
+        collapsed
     };
 }
 
@@ -150,9 +156,14 @@ export function generateMarkdownFromNodes(rootNode: MindMapNode): string {
         const indent = "    ".repeat(indentLevel - 1); // level 1 缩进 0，level 2 缩进 4空格，以此类推
         const listPrefix = "*"; // 使用 * 作为列表符号
 
-        // 分割多行文本
+        // 折叠标记：仅当已折叠且确实有子节点时写入，保持文件干净
+        const collapsedMarker = (!node.expanded && node.children.length > 0)
+            ? " [collapsed:true]"
+            : "";
+
+        // 分割多行文本，标记只追加到首行
         const lines = node.text.split('\n');
-        markdown += `${indent}${listPrefix} ${lines[0]}\n`;
+        markdown += `${indent}${listPrefix} ${lines[0]}${collapsedMarker}\n`;
 
         // 输出续行，续行缩进 = 列表缩进 + 2空格（对应`* `）
         const continuationIndent = indent + "  ";
@@ -215,7 +226,7 @@ export function parseMarkdownContent(content: string, filePath: string): {
             const parsed = parseListItem(line);
             if (!parsed) continue;
 
-            const { level, content, indent } = parsed;
+            const { level, content, indent, collapsed } = parsed;
 
             // 3. 创建新节点
             const newNode: MindMapNode = {
@@ -223,7 +234,7 @@ export function parseMarkdownContent(content: string, filePath: string): {
                 level: level + 1, // +1 因为根节点是 level 0
                 parent: null,
                 children: [],
-                expanded: true
+                expanded: !collapsed
             };
 
             // 4. 找到合适的父节点
