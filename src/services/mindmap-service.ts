@@ -147,6 +147,10 @@ export class MindMapService {
 
     /**
      * Create a new child node for the given parent node
+     *
+     * Auto-expands the parent so the new child is visible. This single
+     * point covers all callers: Tab key / plus button, AI suggestions,
+     * and paste.
      */
     createChildNode(parentNode: MindMapNode, childText = "New Node"): MindMapNode {
         const childNode: MindMapNode = {
@@ -160,6 +164,10 @@ export class MindMapService {
         };
 
         parentNode.children.push(childNode);
+
+        // 自动展开父节点，否则新子节点不可见且无法进入编辑模式
+        parentNode.expanded = true;
+
         return childNode;
     }
 

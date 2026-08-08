@@ -25,6 +25,22 @@ esbuild.buildSync({
 });
 const utils = require(outfile);
 
+// mindmap-service.ts 依赖 obsidian 运行时（仅 Notice），用最小桩替代后打包
+const obsidianStub = path.join(os.tmpdir(), `obsidian-stub-${Date.now()}.js`);
+fs.writeFileSync(obsidianStub, 'exports.Notice = class Notice {};\n');
+const serviceOutfile = path.join(os.tmpdir(), `mindmap-service-${Date.now()}.js`);
+esbuild.buildSync({
+	entryPoints: [path.join(__dirname, '../src/services/mindmap-service.ts')],
+	bundle: true,
+	format: 'cjs',
+	platform: 'node',
+	target: 'es2018',
+	outfile: serviceOutfile,
+	alias: { obsidian: obsidianStub },
+	logLevel: 'silent',
+});
+const { MindMapService } = require(serviceOutfile);
+
 let passed = 0;
 function test(name, fn) {
 	try {
@@ -128,5 +144,53 @@ test('折叠状态经 生成→解析 后保持', () => {
 	assert.strictEqual(expanded.expanded, true);
 });
 
+console.log('\nMindMapService.createChildNode: 折叠父节点自动展开');
+
+// createChildNode / createSiblingNode 只操作传入的节点，构造服务只需最小依赖
+function makeService() {
+	return new MindMapService({}, {});
+}
+
+test('在折叠的父节点上添加子节点 → 父节点自动展开', () => {
+	const service = makeService();
+	const parent = makeNode('折叠的父节点', 1, false);
+	service.createChildNode(parent, '新子节点');
+	assert.strictEqual(parent.expanded, true);
+});
+
+test('在已展开的父节点上添加子节点 → 保持展开', () => {
+	const service = makeService();
+	const parent = makeNode('展开的父节点', 1, true);
+	service.createChildNode(parent, '新子节点');
+	assert.strictEqual(parent.expanded, true);
+});
+
+test('新子节点被追加到父节点的 children 末尾', () => {
+	const service = makeService();
+	const parent = makeNode('父节点', 1, false);
+	const existing = link(parent, makeNode('已有子节点', 2));
+	const child = service.createChildNode(parent, '新子节点');
+	assert.deepStrictEqual(parent.children, [existing, child]);
+	assert.strictEqual(child.parent, parent);
+	assert.strictEqual(child.level, 2);
+});
+
+test('createSiblingNode 不修改任何节点的 expanded 字段', () => {
+	const service = makeService();
+	const root = makeNode('根节点', 0, true);
+	const parent = link(root, makeNode('折叠的父节点', 1, false));
+	const anchor = link(parent, makeNode('锚点节点', 2, false));
+
+	const sibling = service.createSiblingNode(anchor, '新兄弟节点');
+
+	assert.ok(sibling, 'createSiblingNode 应返回新节点');
+	assert.strictEqual(root.expanded, true);
+	assert.strictEqual(parent.expanded, false, 'createSiblingNode 不应展开父节点');
+	assert.strictEqual(anchor.expanded, false, 'createSiblingNode 不应改动锚点节点');
+	assert.deepStrictEqual(parent.children, [anchor, sibling]);
+});
+
 fs.unlinkSync(outfile);
+fs.unlinkSync(serviceOutfile);
+fs.unlinkSync(obsidianStub);
 console.log(`\n${passed} 个断言通过\n`);
