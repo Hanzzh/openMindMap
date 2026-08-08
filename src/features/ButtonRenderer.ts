@@ -27,6 +27,41 @@ import { TextMeasurer } from '../utils/TextMeasurer';
 import { MindMapService } from '../services/mindmap-service';
 
 /**
+ * 按钮栈几何常量
+ *
+ * 节点选中时右侧竖排三个按钮：折叠 / 添加子节点 / AI 建议。
+ * 栈高度固定为三格，与节点是否有子节点无关——这样切换选中不同
+ * 节点时按钮位置不会跳变。
+ */
+export const BUTTON_DIAMETER = 20;
+export const BUTTON_GAP = 10;
+export const BUTTON_STACK_SLOTS = 3;
+export const BUTTON_STACK_HEIGHT =
+	BUTTON_DIAMETER * BUTTON_STACK_SLOTS + BUTTON_GAP * (BUTTON_STACK_SLOTS - 1); // 80
+
+/** 槽位索引：自上而下 */
+export const BUTTON_STACK_SLOT_COLLAPSE = 0;
+export const BUTTON_STACK_SLOT_PLUS = 1;
+export const BUTTON_STACK_SLOT_AI = 2;
+
+/**
+ * 计算按钮栈中指定槽位的垂直偏移
+ *
+ * @param slotIndex 槽位索引（0=折叠, 1=加号, 2=AI）
+ * @param nodeHeight 节点自身高度
+ * @returns 该槽位相对节点顶边的 Y 偏移
+ */
+export function getButtonStackOffset(slotIndex: number, nodeHeight: number): number {
+	const stackTop = (nodeHeight - BUTTON_STACK_HEIGHT) / 2;
+	return stackTop + slotIndex * (BUTTON_DIAMETER + BUTTON_GAP);
+}
+
+/** 按钮栈的水平偏移（相对节点左边缘） */
+export function getButtonStackX(nodeWidth: number): number {
+	return nodeWidth + 4;
+}
+
+/**
  * Button Renderer callback interface
  */
 export interface ButtonRendererCallbacks {
@@ -114,15 +149,14 @@ export class ButtonRenderer {
 			return; // Don't create duplicate if already exists
 		}
 
-		// Calculate total height of both buttons (plus button 20px + spacing 10px + AI button 20px = 50px)
-		const totalButtonsHeight = 20 + 10 + 20;
-		// Plus button positioned at the top
-		const buttonY = (dimensions.height - totalButtonsHeight) / 2;
+		// 使用共享的按钮栈几何，槽位 1（折叠按钮在槽位 0 上方）
+		const buttonY = getButtonStackOffset(BUTTON_STACK_SLOT_PLUS, dimensions.height);
+		const buttonX = getButtonStackX(dimensions.width);
 
 		// Create plus button group
 		const buttonGroup = nodeElement.append("g")
 			.attr("class", "plus-button-group")
-			.attr("transform", `translate(${dimensions.width + 4}, ${buttonY})`);
+			.attr("transform", `translate(${buttonX}, ${buttonY})`);
 
 		// Add click event handler
 		buttonGroup.on("click", (event: MouseEvent) => {

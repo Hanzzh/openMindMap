@@ -41,6 +41,21 @@ esbuild.buildSync({
 });
 const { MindMapService } = require(serviceOutfile);
 
+// ButtonRenderer 的按钮栈几何是纯函数，但同文件 import 了 d3 / obsidian，
+// 沿用上面的 obsidian 桩打包后即可直接调用
+const buttonOutfile = path.join(os.tmpdir(), `button-renderer-${Date.now()}.js`);
+esbuild.buildSync({
+	entryPoints: [path.join(__dirname, '../src/features/ButtonRenderer.ts')],
+	bundle: true,
+	format: 'cjs',
+	platform: 'node',
+	target: 'es2018',
+	outfile: buttonOutfile,
+	alias: { obsidian: obsidianStub },
+	logLevel: 'silent',
+});
+const buttons = require(buttonOutfile);
+
 let passed = 0;
 function test(name, fn) {
 	try {
@@ -190,7 +205,58 @@ test('createSiblingNode 不修改任何节点的 expanded 字段', () => {
 	assert.deepStrictEqual(parent.children, [anchor, sibling]);
 });
 
+console.log('\n按钮栈几何：固定三格');
+
+test('栈高度为 80（三格直径 + 两段间距）', () => {
+	assert.strictEqual(buttons.BUTTON_STACK_HEIGHT, 80);
+	assert.strictEqual(
+		buttons.BUTTON_DIAMETER * buttons.BUTTON_STACK_SLOTS +
+			buttons.BUTTON_GAP * (buttons.BUTTON_STACK_SLOTS - 1),
+		80
+	);
+});
+
+test('槽位索引自上而下为 0/1/2', () => {
+	assert.strictEqual(buttons.BUTTON_STACK_SLOT_COLLAPSE, 0);
+	assert.strictEqual(buttons.BUTTON_STACK_SLOT_PLUS, 1);
+	assert.strictEqual(buttons.BUTTON_STACK_SLOT_AI, 2);
+});
+
+test('三个槽位的 Y 偏移（节点高 40）为 -20 / 10 / 40', () => {
+	assert.strictEqual(buttons.getButtonStackOffset(0, 40), -20);
+	assert.strictEqual(buttons.getButtonStackOffset(1, 40), 10);
+	assert.strictEqual(buttons.getButtonStackOffset(2, 40), 40);
+});
+
+test('三个槽位的 Y 偏移（节点高 80）为 0 / 30 / 60', () => {
+	assert.strictEqual(buttons.getButtonStackOffset(0, 80), 0);
+	assert.strictEqual(buttons.getButtonStackOffset(1, 80), 30);
+	assert.strictEqual(buttons.getButtonStackOffset(2, 80), 60);
+});
+
+test('相邻槽位间距恒为 30（直径 20 + 间距 10），与节点高度无关', () => {
+	for (const h of [0, 24, 40, 137, 500]) {
+		assert.strictEqual(buttons.getButtonStackOffset(1, h) - buttons.getButtonStackOffset(0, h), 30);
+		assert.strictEqual(buttons.getButtonStackOffset(2, h) - buttons.getButtonStackOffset(1, h), 30);
+	}
+});
+
+test('栈整体垂直居中于节点：首尾槽位跨度中点为 nodeHeight/2', () => {
+	for (const h of [24, 40, 137]) {
+		const top = buttons.getButtonStackOffset(0, h);
+		const bottom = buttons.getButtonStackOffset(2, h) + buttons.BUTTON_DIAMETER;
+		assert.strictEqual(bottom - top, 80, `高度 ${h} 的栈跨度应为 80`);
+		assert.strictEqual((top + bottom) / 2, h / 2, `高度 ${h} 的栈应垂直居中`);
+	}
+});
+
+test('水平偏移为节点宽度 + 4', () => {
+	assert.strictEqual(buttons.getButtonStackX(0), 4);
+	assert.strictEqual(buttons.getButtonStackX(100), 104);
+});
+
 fs.unlinkSync(outfile);
 fs.unlinkSync(serviceOutfile);
+fs.unlinkSync(buttonOutfile);
 fs.unlinkSync(obsidianStub);
 console.log(`\n${passed} 个断言通过\n`);

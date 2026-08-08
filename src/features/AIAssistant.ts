@@ -28,6 +28,11 @@ import { MindMapNode, NodeDimensions } from '../interfaces/mindmap-interfaces';
 import { MindMapService } from '../services/mindmap-service';
 import { MindMapMessages } from '../i18n/types';
 import { Logger } from '../utils/logger';
+import {
+	getButtonStackOffset,
+	getButtonStackX,
+	BUTTON_STACK_SLOT_AI
+} from './ButtonRenderer';
 
 /**
  * AI Assistant callback interface
@@ -80,11 +85,9 @@ export class AIAssistant {
 			return; // Don't create duplicate if AI button already exists
 		}
 
-		// Calculate total height of both buttons (plus button 20px + spacing 10px + AI button 20px = 50px)
-		const totalButtonsHeight = 20 + 10 + 20;
-		// AI button positioned at bottom: plus button Y position + 20px (plus button height) + 10px (spacing)
-		const buttonY = (dimensions.height - totalButtonsHeight) / 2 + 20 + 10;
-		const buttonX = dimensions.width + 4; // Horizontally aligned with plus button
+		// 使用共享的按钮栈几何，槽位 2（最下方）
+		const buttonY = getButtonStackOffset(BUTTON_STACK_SLOT_AI, dimensions.height);
+		const buttonX = getButtonStackX(dimensions.width);
 
 		// Create AI suggestion button group
 		const buttonGroup = nodeElement.append("g")
