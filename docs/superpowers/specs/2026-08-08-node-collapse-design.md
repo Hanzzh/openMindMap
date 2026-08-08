@@ -108,7 +108,9 @@ root = d3.hierarchy(data.rootNode, d => d.expanded ? d.children : []);
 
 ### 3.5 样式
 
-新增 `.node-collapse-button`、`.node-collapse-badge` 到 `src/styles/common.css`。移动端如需放大点击区，在 `src/styles/mobile.css` 覆盖，遵循现有 CSS 分层约定。
+新增 `.collapse-button-group` / `.collapse-button-bg` / `.collapse-button-text` 与 `.node-collapse-badge` 到根目录 `styles.css`，紧随既有的 "Plus Button Styles" 段落（`styles.css:111-133`），沿用同样的 hover 过渡写法。
+
+**注意**：`src/styles/common.css`、`desktop.css`、`mobile.css` 是一次未完成重构的产物——它们既未被 git 跟踪，也未被 `esbuild.config.mjs` 打包，任何代码都没有 import 它们。Obsidian 只加载根目录 `styles.css`。因此样式**必须**写入根 `styles.css`，写入 `src/styles/` 不会有任何效果。
 
 ---
 
@@ -190,7 +192,7 @@ root = d3.hierarchy(data.rootNode, d => d.expanded ? d.children : []);
 | `services/mindmap-service.ts` | `createChildNode` 自动展开父节点 |
 | `interactions/interaction-manager.ts` | `RenderCallbacks` 增 `onToggleCollapse` |
 | `interactions/MouseInteraction.ts` | 两处按 class 移除按钮的代码补上折叠按钮组 |
-| `styles/common.css` | 按钮与徽标样式 |
+| `styles.css`（根目录） | 按钮与徽标样式（**非** `src/styles/`，详见 3.5） |
 
 ---
 
@@ -209,8 +211,14 @@ root = d3.hierarchy(data.rootNode, d => d.expanded ? d.children : []);
 
 ### 6.2 静态校验
 
-- `npm run build`（含 `tsc -noEmit -skipLibCheck`）必须通过
-- `npm run lint` 必须通过
+- **`npx tsc -noEmit -skipLibCheck` 必须通过**（当前基线为干净的 exit 0，任何新增类型错误都是回归）
+- **`npm run lint`：不作为通过门槛**。干净检出时该命令已报 137 个既有错误（多为 `no-undef` 误报 DOM 全局变量、以及 obsidianmd 插件的内联样式规则）。要求仅为：本特性**不新增** lint 错误。验证方式是比较改动前后的错误计数：
+
+```bash
+npm run lint 2>&1 | grep -c error   # 基线 139，改动后应不增加
+```
+
+修复既有 lint 错误不属本特性范围。
 
 ### 6.3 Markdown 往返手工验证
 
