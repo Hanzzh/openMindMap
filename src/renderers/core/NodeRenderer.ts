@@ -96,6 +96,39 @@ export class NodeRenderer {
 		// 自动应用选中状态（高亮边框）
 		nodeRects.classed("selected-rect", (d) => d.data.selected || false);
 
+		// 折叠态子节点数徽标
+		// 仅当已折叠、确有子节点、且未被选中时显示——选中时按钮栈
+		// 占据同一位置，徽标须让位。
+		nodeElements.each((d, i, groups) => {
+			const shouldShowBadge =
+				!d.data.expanded &&
+				d.data.children.length > 0 &&
+				!d.data.selected;
+
+			if (!shouldShowBadge) {
+				return;
+			}
+
+			const dims = this.textMeasurer.getNodeDimensions(d.depth, d.data.text);
+			const badge = d3.select(groups[i]).append("g")
+				.attr("class", "node-collapse-badge")
+				.attr("transform", `translate(${dims.width + 4}, ${dims.height / 2 - 9})`);
+
+			badge.append("circle")
+				.attr("class", "node-collapse-badge-bg")
+				.attr("cx", 9)
+				.attr("cy", 9)
+				.attr("r", 9);
+
+			badge.append("text")
+				.attr("class", "node-collapse-badge-text")
+				.attr("x", 9)
+				.attr("y", 9)
+				.attr("text-anchor", "middle")
+				.attr("dominant-baseline", "middle")
+				.text(d.data.children.length);
+		});
+
 		return nodeElements;
 	}
 

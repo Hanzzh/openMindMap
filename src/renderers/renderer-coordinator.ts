@@ -295,7 +295,12 @@ export class RendererCoordinator implements MindMapRenderer {
 				.attr('class', 'mindmap-content');
 
 			// Calculate layout - create D3 hierarchy
-			root = d3.hierarchy(data.rootNode);
+			// Children accessor filters out collapsed subtrees, which makes
+			// collapsed nodes leaves in the hierarchy. LayoutCalculator then
+			// gives them subtreeHeight === nodeHeight automatically, and
+			// root.links() / root.descendants() skip hidden descendants — so
+			// no layout, link, or node rendering code needs to change.
+			root = d3.hierarchy(data.rootNode, d => d.expanded ? d.children : []);
 
 			// Calculate dynamic tree height
 			const dynamicTreeHeight = this.calculateDynamicTreeHeight(root);
