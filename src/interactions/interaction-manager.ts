@@ -44,6 +44,7 @@ export interface RenderCallbacks {
 	onSelectionCleared?: () => void;
 	onNodeDoubleClicked?: (node: d3.HierarchyNode<MindMapNode>, event: MouseEvent) => void;
 	onAddChildNode?: (node: d3.HierarchyNode<MindMapNode>) => void;
+	onToggleCollapse?: (node: d3.HierarchyNode<MindMapNode>) => void;
 	onAddSiblingNode?: (node: d3.HierarchyNode<MindMapNode>) => void;
 	onDeleteNode?: (node: d3.HierarchyNode<MindMapNode>) => void;
 	onCopyNode?: (node: d3.HierarchyNode<MindMapNode>) => Promise<void>;

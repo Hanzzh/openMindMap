@@ -30,7 +30,7 @@ import { Logger } from '../utils/logger';
 // Import core renderers
 import { TextMeasurer } from '../utils/TextMeasurer';
 import { LayoutCalculator } from './layout-calculator';
-import { NodeRenderer } from './core/NodeRenderer';
+import { NodeRenderer, shouldShowCollapseBadge } from './core/NodeRenderer';
 import { LinkRenderer } from './core/LinkRenderer';
 import { TextRenderer } from './core/TextRenderer';
 
@@ -211,6 +211,7 @@ export class RendererCoordinator implements MindMapRenderer {
 		// 5. Button Renderer
 		const buttonCallbacks: ButtonRendererCallbacks = {
 			onAddChildNode: (node) => this.handleAddChildNode(node),
+			onToggleCollapse: (node) => this.handleToggleCollapse(node),
 			enterEditMode: (node) => this.enterEditModeForNode(node),
 			clearSelection: () => this.clearSelection(),
 			selectNode: (node) => this.selectNode(node),
@@ -603,10 +604,19 @@ export class RendererCoordinator implements MindMapRenderer {
 	private handleNodeSelected(node: d3.HierarchyNode<MindMapNode>): void {
 		this.selectedNode = node;
 
+		// 先同步徽标再渲染按钮栈，顺序不可颠倒：
+		// 1) 本节点的徽标须先移除——否则它会作为同 datum 的兄弟 <g> 被下面的
+		//    filter 命中，按钮被追加进徽标组内部；
+		// 2) 上一个选中节点若仍是折叠态，此处把它的徽标加回来。
+		this.syncCollapseBadges();
+
 		// Render buttons
-		const nodeElement = d3.selectAll('.nodes g').filter((d: d3.HierarchyNode<MindMapNode>) => d === node);
+		// 用子代选择器：节点组是 `.nodes` 的直接子元素，而按钮组/徽标组
+		// 由 append 继承了同一份 datum，`.nodes g` 会把它们一并命中。
+		const nodeElement = d3.selectAll('.nodes > g').filter((d: d3.HierarchyNode<MindMapNode>) => d === node);
 		const dimensions = this.textMeasurer.getNodeDimensions(node.depth, node.data.text);
 
+		this.buttonRenderer.renderCollapseButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, node, dimensions);
 		this.buttonRenderer.renderPlusButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, node, dimensions);
 		this.aiAssistant.renderAIButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, node, dimensions);
 
@@ -614,6 +624,39 @@ export class RendererCoordinator implements MindMapRenderer {
 		if (this.config.isMobile && this.mobileToolbar && !this.nodeEditor.isEditing()) {
 			this.mobileToolbar.updatePosition(node, 0, 0);
 		}
+	}
+
+	/**
+	 * Sync collapse badges with the current selection state
+	 *
+	 * Selection does not trigger a re-render — buttons are appended to the
+	 * existing DOM — so the badge's "hide while selected" rule has to be
+	 * re-applied by hand whenever the selection changes. Without this, the
+	 * badge of a newly selected node stays on screen and overlaps the plus
+	 * button (both sit at x = width + 4), and a deselected collapsed node
+	 * never gets its badge back until the next data-driven render.
+	 *
+	 * The show/hide rule and the badge markup both live in NodeRenderer, so
+	 * this pass can never drift from the initial render.
+	 */
+	private syncCollapseBadges(): void {
+		if (!this.currentSvg) {
+			return;
+		}
+
+		// 用子代选择器 `.nodes > g`：节点组是 `.nodes` 的直接子元素，
+		// 而按钮组 / 徽标组本身也是 `g` 且继承了同一份 datum，
+		// 若用 `.nodes g` 会把徽标追加到按钮组或徽标内部。
+		this.currentSvg.selectAll<SVGGElement, d3.HierarchyNode<MindMapNode>>('.nodes > g')
+			.each((d, i, nodes) => {
+				const nodeElement = d3.select<SVGGElement, d3.HierarchyNode<MindMapNode>>(nodes[i]);
+
+				if (shouldShowCollapseBadge(d.data)) {
+					this.nodeRenderer.renderCollapseBadge(nodeElement, d);
+				} else {
+					this.nodeRenderer.removeCollapseBadge(nodeElement);
+				}
+			});
 	}
 
 	private handleNodeHovered(node: d3.HierarchyNode<MindMapNode>): void {
@@ -628,6 +671,9 @@ export class RendererCoordinator implements MindMapRenderer {
 
 	private handleSelectionCleared(): void {
 		this.selectedNode = null;
+
+		// 取消选中后按钮栈消失，折叠态节点应恢复子节点数徽标
+		this.syncCollapseBadges();
 
 		// Mobile: hide toolbar
 		if (this.config.isMobile && this.mobileToolbar) {
@@ -644,6 +690,68 @@ export class RendererCoordinator implements MindMapRenderer {
 
 		if (targetElement) {
 			this.nodeEditor.enableEditing(node, targetElement);
+		}
+	}
+
+	/**
+	 * Toggle a node's collapsed state
+	 *
+	 * Reuses the existing triggerDataUpdate() path, which re-renders the
+	 * layout and saves the file. The snapshot makes the toggle undoable;
+	 * expanded is a plain boolean field so UndoManager's deep clone already
+	 * captures it.
+	 */
+	private handleToggleCollapse(node: d3.HierarchyNode<MindMapNode>): void {
+		// 根节点不可折叠
+		if (node.depth === 0) {
+			return;
+		}
+
+		// Save snapshot (before modification)
+		if (this.currentData) {
+			this.undoManager.saveSnapshot(this.currentData);
+		}
+
+		const willCollapse = node.data.expanded;
+
+		// 即将折叠时，清除后代的选中/悬停状态。
+		// 注意：不能调用 clearSelection()——那会清除被折叠节点自身的
+		// 选中态，用户刚点的按钮栈随即消失，无法连续操作。
+		if (willCollapse) {
+			this.clearDescendantSelectionStates(node.data);
+		}
+
+		node.data.expanded = !node.data.expanded;
+
+		Logger.getInstance().debug('RendererCoordinator', 'handleToggleCollapse', {
+			text: node.data.text,
+			expanded: node.data.expanded,
+			childCount: node.data.children.length
+		});
+
+		this.triggerDataUpdate();
+	}
+
+	/**
+	 * Recursively clear selection/hover state on a node's descendants
+	 *
+	 * The node itself keeps its state — it stays selected so its button
+	 * stack remains usable right after collapsing.
+	 */
+	private clearDescendantSelectionStates(node: MindMapNode): void {
+		for (const child of node.children) {
+			// 若被清除的正是当前选中节点，同步置空引用避免悬空
+			if (this.selectedNode && this.selectedNode.data === child) {
+				this.selectedNode = null;
+			}
+			if (this.hoveredNode && this.hoveredNode.data === child) {
+				this.hoveredNode = null;
+			}
+
+			child.selected = false;
+			child.hovered = false;
+
+			this.clearDescendantSelectionStates(child);
 		}
 	}
 
@@ -832,6 +940,10 @@ export class RendererCoordinator implements MindMapRenderer {
 		// Remove all buttons
 		d3.selectAll('.plus-button-group').remove();
 		d3.selectAll('.ai-suggest-button-group').remove();
+		d3.selectAll('.collapse-button-group').remove();
+
+		// 按钮栈已移除，仍处折叠态的节点应重新显示子节点数徽标
+		this.syncCollapseBadges();
 
 		// Mobile: hide toolbar
 		if (this.config.isMobile && this.mobileToolbar) {
@@ -1063,6 +1175,7 @@ export class RendererCoordinator implements MindMapRenderer {
 					const dimensions = this.textMeasurer.getNodeDimensions(d.depth, d.data.text);
 
 					// Call feature module methods
+					this.buttonRenderer.renderCollapseButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, d, dimensions);
 					this.buttonRenderer.renderPlusButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, d, dimensions);
 					this.aiAssistant.renderAIButton(nodeElement as d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>, d, dimensions);
 

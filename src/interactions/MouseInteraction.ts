@@ -212,6 +212,10 @@ export class MouseInteraction {
 
 			selectedNodeElement.select('.plus-button-group').remove();
 			selectedNodeElement.select('.ai-suggest-button-group').remove();
+			selectedNodeElement.select('.collapse-button-group').remove();
+
+			// 折叠态子节点数徽标由 RendererCoordinator.syncCollapseBadges() 恢复，
+			// 它在随后的 onCanvasClick → onSelectionCleared 回调中运行。
 
 			// 清空选中节点引用
 			this.selectedNode = null;
@@ -330,6 +334,10 @@ export class MouseInteraction {
 
 			previousNodeElement.select('.plus-button-group').remove();
 			previousNodeElement.select('.ai-suggest-button-group').remove();
+			previousNodeElement.select('.collapse-button-group').remove();
+
+			// 上一个节点若仍是折叠态，其徽标由 RendererCoordinator.syncCollapseBadges()
+			// 在随后的 onNodeSelect → onNodeSelected 回调中加回。
 		}
 
 		// 清除当前节点的悬停状态（选中状态优先级高于悬停状态）

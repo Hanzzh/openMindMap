@@ -5,6 +5,21 @@ import { LayoutCalculator } from '../layout-calculator';
 import { CoordinateConverter } from '../../utils/coordinate-system';
 
 /**
+ * 是否显示折叠态子节点数徽标
+ *
+ * 三个条件同时满足才显示：已折叠、确有子节点、且未被选中。
+ * 选中时按钮栈占据徽标同一位置（x 都是 width+4，y 区间几乎重合），
+ * 徽标必须让位，否则两者叠在一起。
+ *
+ * 该判定被首次渲染与选中/取消选中时的徽标同步共用，避免两处规则漂移。
+ *
+ * @param node 节点数据
+ */
+export function shouldShowCollapseBadge(node: MindMapNode): boolean {
+	return !node.expanded && node.children.length > 0 && !node.selected;
+}
+
+/**
  * 节点渲染器
  *
  * 【职责】
@@ -12,6 +27,7 @@ import { CoordinateConverter } from '../../utils/coordinate-system';
  * - 渲染节点矩形（background, border, colors）
  * - 处理节点尺寸和位置
  * - 应用节点样式（depth-based styling）
+ * - 维护折叠态子节点数徽标的生命周期
  *
  * 【依赖】
  * - TextMeasurer: 文本尺寸测量
@@ -97,39 +113,67 @@ export class NodeRenderer {
 		nodeRects.classed("selected-rect", (d) => d.data.selected || false);
 
 		// 折叠态子节点数徽标
-		// 仅当已折叠、确有子节点、且未被选中时显示——选中时按钮栈
-		// 占据同一位置，徽标须让位。
 		nodeElements.each((d, i, groups) => {
-			const shouldShowBadge =
-				!d.data.expanded &&
-				d.data.children.length > 0 &&
-				!d.data.selected;
-
-			if (!shouldShowBadge) {
-				return;
-			}
-
-			const dims = this.textMeasurer.getNodeDimensions(d.depth, d.data.text);
-			const badge = d3.select(groups[i]).append("g")
-				.attr("class", "node-collapse-badge")
-				.attr("transform", `translate(${dims.width + 4}, ${dims.height / 2 - 9})`);
-
-			badge.append("circle")
-				.attr("class", "node-collapse-badge-bg")
-				.attr("cx", 9)
-				.attr("cy", 9)
-				.attr("r", 9);
-
-			badge.append("text")
-				.attr("class", "node-collapse-badge-text")
-				.attr("x", 9)
-				.attr("y", 9)
-				.attr("text-anchor", "middle")
-				.attr("dominant-baseline", "middle")
-				.text(d.data.children.length);
+			this.renderCollapseBadge(d3.select(groups[i]), d);
 		});
 
 		return nodeElements;
+	}
+
+	/**
+	 * 渲染（或按条件跳过）折叠态子节点数徽标
+	 *
+	 * 首次渲染与选中态变化后的徽标同步都走这里——创建代码只有一份，
+	 * 重加的徽标与首渲的徽标不可能在几何或样式上漂移。
+	 * 已存在徽标时直接返回，重复调用安全。
+	 *
+	 * @param nodeElement 节点组元素
+	 * @param node D3 层次节点
+	 */
+	renderCollapseBadge(
+		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>,
+		node: d3.HierarchyNode<MindMapNode>
+	): void {
+		if (!shouldShowCollapseBadge(node.data)) {
+			return;
+		}
+
+		// 已存在则不重复创建
+		if (!nodeElement.select(".node-collapse-badge").empty()) {
+			return;
+		}
+
+		const dims = this.textMeasurer.getNodeDimensions(node.depth, node.data.text);
+		const badge = nodeElement.append("g")
+			.attr("class", "node-collapse-badge")
+			.attr("transform", `translate(${dims.width + 4}, ${dims.height / 2 - 9})`);
+
+		badge.append("circle")
+			.attr("class", "node-collapse-badge-bg")
+			.attr("cx", 9)
+			.attr("cy", 9)
+			.attr("r", 9);
+
+		badge.append("text")
+			.attr("class", "node-collapse-badge-text")
+			.attr("x", 9)
+			.attr("y", 9)
+			.attr("text-anchor", "middle")
+			.attr("dominant-baseline", "middle")
+			.text(node.data.children.length);
+	}
+
+	/**
+	 * 移除折叠态子节点数徽标
+	 *
+	 * 节点被选中时调用——按钮栈即将占据徽标的位置。
+	 *
+	 * @param nodeElement 节点组元素
+	 */
+	removeCollapseBadge(
+		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>
+	): void {
+		nodeElement.select(".node-collapse-badge").remove();
 	}
 
 	/**
