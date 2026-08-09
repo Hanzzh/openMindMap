@@ -255,6 +255,38 @@ test('水平偏移为节点宽度 + 4', () => {
 	assert.strictEqual(buttons.getButtonStackX(100), 104);
 });
 
+console.log('\n折叠按钮：图标与渲染条件');
+
+test('展开态图标为 ▾，折叠态为 ▸', () => {
+	assert.strictEqual(buttons.getCollapseIcon(true), '▾');
+	assert.strictEqual(buttons.getCollapseIcon(false), '▸');
+});
+
+test('图标不使用 + / − 以免与"添加子节点"撞脸', () => {
+	for (const expanded of [true, false]) {
+		const icon = buttons.getCollapseIcon(expanded);
+		assert.ok(!['+', '-', '−'].includes(icon), `图标不应为 ${icon}`);
+	}
+});
+
+test('根节点（depth 0）不渲染折叠按钮', () => {
+	assert.strictEqual(buttons.shouldRenderCollapseButton(0), false);
+});
+
+test('非根节点渲染折叠按钮', () => {
+	assert.strictEqual(buttons.shouldRenderCollapseButton(1), true);
+	assert.strictEqual(buttons.shouldRenderCollapseButton(5), true);
+});
+
+test('渲染条件只取决于深度，与是否有子节点无关（保证按钮栈不跳变）', () => {
+	// shouldRenderCollapseButton 只接受 depth：无子节点的节点照常渲染，
+	// 签名上就无法把 children 数量作为隐藏条件。
+	assert.strictEqual(buttons.shouldRenderCollapseButton.length, 1);
+	const leaf = makeNode('叶子', 1);
+	assert.strictEqual(leaf.children.length, 0);
+	assert.strictEqual(buttons.shouldRenderCollapseButton(leaf.level), true);
+});
+
 fs.unlinkSync(outfile);
 fs.unlinkSync(serviceOutfile);
 fs.unlinkSync(buttonOutfile);

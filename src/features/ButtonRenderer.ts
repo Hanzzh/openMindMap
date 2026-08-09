@@ -3,6 +3,7 @@
  *
  * [Responsibilities]
  * - Render plus button (add child node)
+ * - Render collapse toggle button
  * - Remove button
  * - Batch render buttons
  * - Handle button click events
@@ -62,6 +63,30 @@ export function getButtonStackX(nodeWidth: number): number {
 }
 
 /**
+ * 折叠按钮图标
+ *
+ * 用三角形而非 `+` / `−`，以免与"添加子节点"的 `+` 撞脸。
+ *
+ * @param expanded 节点当前是否展开
+ * @returns 展开态 `▾`，折叠态 `▸`
+ */
+export function getCollapseIcon(expanded: boolean): string {
+	return expanded ? '▾' : '▸';
+}
+
+/**
+ * 是否渲染折叠按钮
+ *
+ * 只取决于深度：根节点不可折叠。无子节点的节点照常渲染——
+ * 三格按钮栈的几何保持固定，切换选中节点时按钮不会跳变。
+ *
+ * @param depth 节点深度（根为 0）
+ */
+export function shouldRenderCollapseButton(depth: number): boolean {
+	return depth !== 0;
+}
+
+/**
  * Button Renderer callback interface
  */
 export interface ButtonRendererCallbacks {
@@ -69,6 +94,11 @@ export interface ButtonRendererCallbacks {
 	 * Called when adding child node (will trigger snapshot save)
 	 */
 	onAddChildNode?: (_node: d3.HierarchyNode<MindMapNode>) => void;
+
+	/**
+	 * Called when the collapse button is clicked (will trigger snapshot save)
+	 */
+	onToggleCollapse?: (_node: d3.HierarchyNode<MindMapNode>) => void;
 
 	/**
 	 * Called when button click requires entering edit mode
@@ -185,6 +215,89 @@ export class ButtonRenderer {
 			.attr("font-weight", "bold")
 			.style("pointer-events", "none")  // Block text events, let circular background receive events
 			.text("+");
+	}
+
+	/**
+	 * Render collapse toggle button for a single node
+	 *
+	 * Occupies the top slot of the button stack. Rendered for every node
+	 * except the root, including nodes without children — the stack keeps a
+	 * fixed three-slot geometry so buttons never shift when the selection
+	 * moves between nodes.
+	 *
+	 * @param nodeElement Node element selection set
+	 * @param node Node data
+	 * @param dimensions Node dimensions
+	 */
+	renderCollapseButton(
+		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>,
+		node: d3.HierarchyNode<MindMapNode>,
+		dimensions: NodeDimensions
+	): void {
+		// 根节点不可折叠
+		if (!shouldRenderCollapseButton(node.depth)) {
+			return;
+		}
+
+		// Check if collapse button already exists
+		const existingButton = nodeElement.select(".collapse-button-group");
+		if (!existingButton.empty()) {
+			return; // Don't create duplicate if already exists
+		}
+
+		// 使用共享的按钮栈几何，槽位 0（最上方）
+		const buttonY = getButtonStackOffset(BUTTON_STACK_SLOT_COLLAPSE, dimensions.height);
+		const buttonX = getButtonStackX(dimensions.width);
+
+		const buttonGroup = nodeElement.append("g")
+			.attr("class", "collapse-button-group")
+			.attr("transform", `translate(${buttonX}, ${buttonY})`);
+
+		// Add click event handler
+		buttonGroup.on("click", (event: MouseEvent) => {
+			event.stopPropagation(); // Prevent event bubbling to node
+			this.callbacks.onToggleCollapse?.(node);
+		});
+
+		// Create circular background
+		buttonGroup.append("circle")
+			.attr("class", "collapse-button-bg")
+			.attr("cx", 10)
+			.attr("cy", 10)
+			.attr("r", 10)
+			.attr("fill", "#64748b")  // Slate background, distinct from plus/AI
+			.style("opacity", 0.9)
+			.style("cursor", "pointer");
+
+		// Create triangle icon: down when expanded, right when collapsed
+		buttonGroup.append("text")
+			.attr("class", "collapse-button-text")
+			.attr("x", 10)
+			.attr("y", 10)
+			.attr("text-anchor", "middle")
+			.attr("dominant-baseline", "middle")
+			.attr("fill", "white")
+			.attr("font-size", "12px")
+			.style("pointer-events", "none")  // Let the circle receive events
+			.text(getCollapseIcon(!!node.data.expanded));
+
+		// Add title tooltip
+		buttonGroup.append("title")
+			.text(node.data.expanded ? "Collapse" : "Expand");
+	}
+
+	/**
+	 * Remove collapse button from node
+	 *
+	 * @param nodeElement Node element selection set
+	 */
+	removeCollapseButton(
+		nodeElement: d3.Selection<SVGGElement, d3.HierarchyNode<MindMapNode>, null, undefined>
+	): void {
+		const buttonGroup = nodeElement.select(".collapse-button-group");
+		if (!buttonGroup.empty()) {
+			buttonGroup.remove();
+		}
 	}
 
 	/**
