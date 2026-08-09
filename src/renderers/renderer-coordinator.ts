@@ -890,6 +890,11 @@ export class RendererCoordinator implements MindMapRenderer {
 			// 5. Trigger onCanvasInteractionChanged(true) callback
 			this.nodeEditor.saveText();
 		}
+
+		// 画布点击在编辑态下会先走 clearSelection()（移除按钮栈与徽标）后
+		// 直接 return，不经过 handleSelectionCleared，所以徽标不会被恢复。
+		// 若文本未变化，saveText() 也不会触发重渲染。这里补一次同步。
+		this.syncCollapseBadges();
 	}
 
 	// ========== Helper Methods ==========
@@ -1167,8 +1172,10 @@ export class RendererCoordinator implements MindMapRenderer {
 		if (!this.currentSvg) return;
 
 		// Iterate all nodes, restore buttons for selected nodes
-		// Note: Nodes are <g> elements inside .nodes container, not .node class
-		this.currentSvg.selectAll(".nodes g")
+		// 用子代选择器 `.nodes > g`：节点组是 `.nodes` 的直接子元素，
+		// 而按钮组和徽标是节点组的后代且继承了同一份 datum。
+		// 若用 `.nodes g` 会把按钮追加到按钮组或徽标内部。
+		this.currentSvg.selectAll(".nodes > g")
 			.each((d: d3.HierarchyNode<MindMapNode>, i, nodes) => {
 				if (d.data.selected) {
 					const nodeElement = d3.select(nodes[i] as SVGGElement);

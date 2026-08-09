@@ -288,6 +288,32 @@ test('重做可恢复折叠态 expanded=false', () => {
 	assert.strictEqual(redone.rootNode.children[0].expanded, false, '重做应恢复折叠态');
 });
 
+console.log('\n徽标同步接线：三个选中态变更点都要重新求值');
+
+test('handleSelectionCleared 会同步徽标', () => {
+	const c = makeCoordinator({ config: { isMobile: false }, mobileToolbar: null });
+	c.handleSelectionCleared();
+	assert.strictEqual(c._badgeSyncs, 1, '取消选中后徽标应恢复，否则折叠节点永久无徽标');
+});
+
+test('handleExitEditMode 会同步徽标（编辑态画布点击路径）', () => {
+	// 画布点击在编辑态下先 clearSelection() 再 return，不经过
+	// handleSelectionCleared；若文本未变化也不触发重渲染。
+	const c = makeCoordinator({ nodeEditor: { isEditing: () => false } });
+	c.handleExitEditMode();
+	assert.strictEqual(c._badgeSyncs, 1, '退出编辑模式后徽标应恢复');
+});
+
+test('handleExitEditMode 在确有编辑时先保存再同步徽标', () => {
+	let saved = 0;
+	const c = makeCoordinator({
+		nodeEditor: { isEditing: () => true, saveText: () => { saved++; } }
+	});
+	c.handleExitEditMode();
+	assert.strictEqual(saved, 1, '应先保存文本');
+	assert.strictEqual(c._badgeSyncs, 1, '保存后仍应同步徽标');
+});
+
 fs.unlinkSync(coordinatorBundle.outfile);
 fs.unlinkSync(nodeRendererBundle.outfile);
 fs.unlinkSync(undoBundle.outfile);
