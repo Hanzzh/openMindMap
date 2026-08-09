@@ -3760,18 +3760,23 @@ function getFileNameWithoutExtension(filePath) {
   const fileName = filePath.replace(/^.*[\\/]/, "");
   return fileName.replace(/\.md$/, "");
 }
+function hasHiddenChildren(node) {
+  return !node.expanded && node.children.length > 0;
+}
 function isListItem(line) {
   return /^[ \t]*[*\-+]\s+\S/.test(line) || /^[ \t]*\d+\.\s+\S/.test(line);
 }
 function parseListItem(line) {
   const match = line.match(/^(\s*)([*\-+]?\d*\.?)\s+(.+)$/);
   if (!match) return null;
-  const [, indent, , content] = match;
+  const [, indent, , rawContent] = match;
   const level = Math.floor(indent.length / 4);
+  const collapsed = /\[collapsed:true\]\s*$/.test(rawContent);
   return {
     level,
-    content: cleanTextContent(content),
-    indent
+    content: cleanTextContent(rawContent),
+    indent,
+    collapsed
   };
 }
 function generateMarkdownFromNodes(rootNode) {
@@ -3780,8 +3785,9 @@ function generateMarkdownFromNodes(rootNode) {
     if (node.level === 0) return;
     const indent = "    ".repeat(indentLevel - 1);
     const listPrefix = "*";
+    const collapsedMarker = hasHiddenChildren(node) ? " [collapsed:true]" : "";
     const lines = node.text.split("\n");
-    markdown += `${indent}${listPrefix} ${lines[0]}
+    markdown += `${indent}${listPrefix} ${lines[0]}${collapsedMarker}
 `;
     const continuationIndent = indent + "  ";
     for (let i = 1; i < lines.length; i++) {
@@ -3821,14 +3827,14 @@ function parseMarkdownContent(content, filePath) {
     if (isListItem(line)) {
       const parsed = parseListItem(line);
       if (!parsed) continue;
-      const { level, content: content2, indent } = parsed;
+      const { level, content: content2, indent, collapsed } = parsed;
       const newNode = {
         text: content2,
         level: level + 1,
         // +1 因为根节点是 level 0
         parent: null,
         children: [],
-        expanded: true
+        expanded: !collapsed
       };
       while (nodeStack.length > level + 1) {
         nodeStack.pop();
@@ -4782,6 +4788,9 @@ var CoordinateConverter = class {
 };
 
 // src/renderers/core/NodeRenderer.ts
+function shouldShowCollapseBadge(node) {
+  return hasHiddenChildren(node) && !node.selected;
+}
 var NodeRenderer = class {
   constructor(textMeasurer, layoutCalculator) {
     this.textMeasurer = textMeasurer;
@@ -4830,7 +4839,42 @@ var NodeRenderer = class {
       return "none";
     }).attr("stroke-width", (d) => d.depth === 0 ? 2 : 0).style("cursor", "pointer");
     nodeRects.classed("selected-rect", (d) => d.data.selected || false);
+    nodeElements.each((d, i, groups) => {
+      this.renderCollapseBadge(select_default2(groups[i]), d);
+    });
     return nodeElements;
+  }
+  /**
+   * 渲染（或按条件跳过）折叠态子节点数徽标
+   *
+   * 首次渲染与选中态变化后的徽标同步都走这里——创建代码只有一份，
+   * 重加的徽标与首渲的徽标不可能在几何或样式上漂移。
+   * 已存在徽标时直接返回，重复调用安全。
+   *
+   * @param nodeElement 节点组元素
+   * @param node D3 层次节点
+   */
+  renderCollapseBadge(nodeElement, node) {
+    if (!shouldShowCollapseBadge(node.data)) {
+      return;
+    }
+    if (!nodeElement.select(".node-collapse-badge").empty()) {
+      return;
+    }
+    const dims = this.textMeasurer.getNodeDimensions(node.depth, node.data.text);
+    const badge = nodeElement.append("g").attr("class", "node-collapse-badge").attr("transform", `translate(${dims.width + 4}, ${dims.height / 2 - 9})`);
+    badge.append("circle").attr("class", "node-collapse-badge-bg").attr("cx", 9).attr("cy", 9).attr("r", 9);
+    badge.append("text").attr("class", "node-collapse-badge-text").attr("x", 9).attr("y", 9).attr("text-anchor", "middle").attr("dominant-baseline", "middle").text(node.data.children.length);
+  }
+  /**
+   * 移除折叠态子节点数徽标
+   *
+   * 节点被选中时调用——按钮栈即将占据徽标的位置。
+   *
+   * @param nodeElement 节点组元素
+   */
+  removeCollapseBadge(nodeElement) {
+    nodeElement.select(".node-collapse-badge").remove();
   }
   /**
    * 创建单个节点组（可选方法，用于动态添加节点）
@@ -5320,9 +5364,10 @@ var MouseInteraction = class {
     if (this.selectedNode) {
       this.selectedNode.data.selected = false;
       selectAll_default2(".node-rect").classed("selected-rect", false);
-      const selectedNodeElement = selectAll_default2(".nodes g").filter((d) => d === this.selectedNode);
+      const selectedNodeElement = selectAll_default2(".nodes > g").filter((d) => d === this.selectedNode);
       selectedNodeElement.select(".plus-button-group").remove();
       selectedNodeElement.select(".ai-suggest-button-group").remove();
+      selectedNodeElement.select(".collapse-button-group").remove();
       this.selectedNode = null;
     }
   }
@@ -5391,9 +5436,10 @@ var MouseInteraction = class {
     if (this.selectedNode && this.selectedNode !== node) {
       this.selectedNode.data.selected = false;
       selectAll_default2(".node-rect").filter((d) => d === this.selectedNode).classed("selected-rect", false);
-      const previousNodeElement = selectAll_default2(".nodes g").filter((d) => d === this.selectedNode);
+      const previousNodeElement = selectAll_default2(".nodes > g").filter((d) => d === this.selectedNode);
       previousNodeElement.select(".plus-button-group").remove();
       previousNodeElement.select(".ai-suggest-button-group").remove();
+      previousNodeElement.select(".collapse-button-group").remove();
     }
     if (node.data.hovered) {
       this.clearNodeHoverState(node, nodeRect);
@@ -5933,6 +5979,143 @@ var InteractionManager = class {
 
 // src/features/AIAssistant.ts
 var import_obsidian2 = require("obsidian");
+
+// src/features/ButtonRenderer.ts
+var BUTTON_DIAMETER = 20;
+var BUTTON_GAP = 10;
+var BUTTON_STACK_SLOTS = 3;
+var BUTTON_STACK_HEIGHT = BUTTON_DIAMETER * BUTTON_STACK_SLOTS + BUTTON_GAP * (BUTTON_STACK_SLOTS - 1);
+var BUTTON_STACK_SLOT_COLLAPSE = 0;
+var BUTTON_STACK_SLOT_PLUS = 1;
+var BUTTON_STACK_SLOT_AI = 2;
+function getButtonStackOffset(slotIndex, nodeHeight) {
+  const stackTop = (nodeHeight - BUTTON_STACK_HEIGHT) / 2;
+  return stackTop + slotIndex * (BUTTON_DIAMETER + BUTTON_GAP);
+}
+function getButtonStackX(nodeWidth) {
+  return nodeWidth + 4;
+}
+function getCollapseIcon(expanded) {
+  return expanded ? "\u25BE" : "\u25B8";
+}
+function shouldRenderCollapseButton(depth) {
+  return depth !== 0;
+}
+var ButtonRenderer = class {
+  constructor(_mindMapService, textMeasurer, callbacks) {
+    this.textMeasurer = textMeasurer;
+    this.callbacks = callbacks;
+  }
+  /**
+   * Batch render plus buttons (only for selected nodes)
+   *
+   * @param nodeElements D3 node selection set
+   */
+  renderButtons(nodeElements) {
+    const nodes = nodeElements.nodes();
+    const data = nodeElements.data();
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const d = data[i];
+      const nodeElement = select_default2(node);
+      const dimensions = this.textMeasurer.getNodeDimensions(d.depth, d.data.text);
+      if (d.data.selected) {
+        this.renderPlusButton(nodeElement, d, dimensions);
+      }
+    }
+  }
+  /**
+   * Render plus button for a single node
+   *
+   * @param nodeElement Node element selection set
+   * @param node Node data
+   * @param dimensions Node dimensions
+   */
+  renderPlusButton(nodeElement, node, dimensions) {
+    const existingButton = nodeElement.select(".plus-button-group");
+    if (!existingButton.empty()) {
+      return;
+    }
+    const buttonY = getButtonStackOffset(BUTTON_STACK_SLOT_PLUS, dimensions.height);
+    const buttonX = getButtonStackX(dimensions.width);
+    const buttonGroup = nodeElement.append("g").attr("class", "plus-button-group").attr("transform", `translate(${buttonX}, ${buttonY})`);
+    buttonGroup.on("click", (event) => {
+      this.handleButtonClick(event, node);
+    });
+    buttonGroup.append("circle").attr("class", "plus-button-bg").attr("cx", 10).attr("cy", 10).attr("r", 10).attr("fill", "#2972f4").style("opacity", 0.9).style("cursor", "pointer");
+    buttonGroup.append("text").attr("class", "plus-button-text").attr("x", 10).attr("y", 10).attr("text-anchor", "middle").attr("dominant-baseline", "middle").attr("fill", "white").attr("font-size", "16px").attr("font-weight", "bold").style("pointer-events", "none").text("+");
+  }
+  /**
+   * Render collapse toggle button for a single node
+   *
+   * Occupies the top slot of the button stack. Rendered for every node
+   * except the root, including nodes without children — the stack keeps a
+   * fixed three-slot geometry so buttons never shift when the selection
+   * moves between nodes.
+   *
+   * @param nodeElement Node element selection set
+   * @param node Node data
+   * @param dimensions Node dimensions
+   */
+  renderCollapseButton(nodeElement, node, dimensions) {
+    if (!shouldRenderCollapseButton(node.depth)) {
+      return;
+    }
+    const existingButton = nodeElement.select(".collapse-button-group");
+    if (!existingButton.empty()) {
+      return;
+    }
+    const buttonY = getButtonStackOffset(BUTTON_STACK_SLOT_COLLAPSE, dimensions.height);
+    const buttonX = getButtonStackX(dimensions.width);
+    const buttonGroup = nodeElement.append("g").attr("class", "collapse-button-group").attr("transform", `translate(${buttonX}, ${buttonY})`);
+    buttonGroup.on("click", (event) => {
+      var _a, _b;
+      event.stopPropagation();
+      (_b = (_a = this.callbacks).onToggleCollapse) == null ? void 0 : _b.call(_a, node);
+    });
+    buttonGroup.append("circle").attr("class", "collapse-button-bg").attr("cx", 10).attr("cy", 10).attr("r", 10).attr("fill", "#64748b").style("opacity", 0.9).style("cursor", "pointer");
+    buttonGroup.append("text").attr("class", "collapse-button-text").attr("x", 10).attr("y", 10).attr("text-anchor", "middle").attr("dominant-baseline", "middle").attr("fill", "white").attr("font-size", "12px").style("pointer-events", "none").text(getCollapseIcon(!!node.data.expanded));
+    buttonGroup.append("title").text(node.data.expanded ? "Collapse" : "Expand");
+  }
+  /**
+   * Remove collapse button from node
+   *
+   * @param nodeElement Node element selection set
+   */
+  removeCollapseButton(nodeElement) {
+    const buttonGroup = nodeElement.select(".collapse-button-group");
+    if (!buttonGroup.empty()) {
+      buttonGroup.remove();
+    }
+  }
+  /**
+   * Remove plus button from node
+   *
+   * @param nodeElement Node element selection set
+   */
+  removePlusButton(nodeElement) {
+    const buttonGroup = nodeElement.select(".plus-button-group");
+    if (!buttonGroup.empty()) {
+      buttonGroup.remove();
+    }
+  }
+  /**
+   * Destroy
+   */
+  destroy() {
+  }
+  // ========== Private Methods ==========
+  /**
+   * Handle plus button click event
+   */
+  handleButtonClick(event, node) {
+    var _a, _b;
+    event.stopPropagation();
+    (_b = (_a = this.callbacks).onAddChildNode) == null ? void 0 : _b.call(_a, node);
+  }
+};
+
+// src/features/AIAssistant.ts
 var AIAssistant = class {
   constructor(mindMapService, messages, callbacks) {
     // Selected suggestions tracking
@@ -5955,9 +6138,8 @@ var AIAssistant = class {
     if (!existingAIButton.empty()) {
       return;
     }
-    const totalButtonsHeight = 20 + 10 + 20;
-    const buttonY = (dimensions.height - totalButtonsHeight) / 2 + 20 + 10;
-    const buttonX = dimensions.width + 4;
+    const buttonY = getButtonStackOffset(BUTTON_STACK_SLOT_AI, dimensions.height);
+    const buttonX = getButtonStackX(dimensions.width);
     const buttonGroup = nodeElement.append("g").attr("class", "ai-suggest-button-group").attr("transform", `translate(${buttonX}, ${buttonY})`);
     buttonGroup.on("click", (event) => {
       event.stopPropagation();
@@ -6511,6 +6693,7 @@ var ClipboardManager = class {
     if (subtreeRoot) {
       subtreeRoot.parent = node.data;
       node.data.children.push(subtreeRoot);
+      node.data.expanded = true;
       (_b = (_a = this.callbacks).clearSelection) == null ? void 0 : _b.call(_a);
       subtreeRoot.selected = true;
       (_d = (_c = this.callbacks).onDataUpdated) == null ? void 0 : _d.call(_c);
@@ -6559,78 +6742,6 @@ var ClipboardManager = class {
    */
   showErrorNotice(message) {
     new import_obsidian4.Notice(message, 3e3);
-  }
-};
-
-// src/features/ButtonRenderer.ts
-var ButtonRenderer = class {
-  constructor(_mindMapService, textMeasurer, callbacks) {
-    this.textMeasurer = textMeasurer;
-    this.callbacks = callbacks;
-  }
-  /**
-   * Batch render plus buttons (only for selected nodes)
-   *
-   * @param nodeElements D3 node selection set
-   */
-  renderButtons(nodeElements) {
-    const nodes = nodeElements.nodes();
-    const data = nodeElements.data();
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-      const d = data[i];
-      const nodeElement = select_default2(node);
-      const dimensions = this.textMeasurer.getNodeDimensions(d.depth, d.data.text);
-      if (d.data.selected) {
-        this.renderPlusButton(nodeElement, d, dimensions);
-      }
-    }
-  }
-  /**
-   * Render plus button for a single node
-   *
-   * @param nodeElement Node element selection set
-   * @param node Node data
-   * @param dimensions Node dimensions
-   */
-  renderPlusButton(nodeElement, node, dimensions) {
-    const existingButton = nodeElement.select(".plus-button-group");
-    if (!existingButton.empty()) {
-      return;
-    }
-    const totalButtonsHeight = 20 + 10 + 20;
-    const buttonY = (dimensions.height - totalButtonsHeight) / 2;
-    const buttonGroup = nodeElement.append("g").attr("class", "plus-button-group").attr("transform", `translate(${dimensions.width + 4}, ${buttonY})`);
-    buttonGroup.on("click", (event) => {
-      this.handleButtonClick(event, node);
-    });
-    buttonGroup.append("circle").attr("class", "plus-button-bg").attr("cx", 10).attr("cy", 10).attr("r", 10).attr("fill", "#2972f4").style("opacity", 0.9).style("cursor", "pointer");
-    buttonGroup.append("text").attr("class", "plus-button-text").attr("x", 10).attr("y", 10).attr("text-anchor", "middle").attr("dominant-baseline", "middle").attr("fill", "white").attr("font-size", "16px").attr("font-weight", "bold").style("pointer-events", "none").text("+");
-  }
-  /**
-   * Remove plus button from node
-   *
-   * @param nodeElement Node element selection set
-   */
-  removePlusButton(nodeElement) {
-    const buttonGroup = nodeElement.select(".plus-button-group");
-    if (!buttonGroup.empty()) {
-      buttonGroup.remove();
-    }
-  }
-  /**
-   * Destroy
-   */
-  destroy() {
-  }
-  // ========== Private Methods ==========
-  /**
-   * Handle plus button click event
-   */
-  handleButtonClick(event, node) {
-    var _a, _b;
-    event.stopPropagation();
-    (_b = (_a = this.callbacks).onAddChildNode) == null ? void 0 : _b.call(_a, node);
   }
 };
 
@@ -6898,6 +7009,7 @@ var RendererCoordinator = class {
     this.clipboardManager = new ClipboardManager(this.mindMapService, this.messages, clipboardCallbacks);
     const buttonCallbacks = {
       onAddChildNode: (node) => this.handleAddChildNode(node),
+      onToggleCollapse: (node) => this.handleToggleCollapse(node),
       enterEditMode: (node) => this.enterEditModeForNode(node),
       clearSelection: () => this.clearSelection(),
       selectNode: (node) => this.selectNode(node),
@@ -6948,7 +7060,7 @@ var RendererCoordinator = class {
       this.currentSvg = svg;
       this.attachContainerResizeObserver(container);
       this.currentContent = svg.append("g").attr("class", "mindmap-content");
-      root2 = hierarchy(data.rootNode);
+      root2 = hierarchy(data.rootNode, (d) => d.expanded ? d.children : []);
       const dynamicTreeHeight = this.calculateDynamicTreeHeight(root2);
       this.layoutCalculator.updateConfig({
         treeHeight: dynamicTreeHeight
@@ -7145,13 +7257,41 @@ var RendererCoordinator = class {
   // ========== RenderCallbacks Implementation ==========
   handleNodeSelected(node) {
     this.selectedNode = node;
-    const nodeElement = selectAll_default2(".nodes g").filter((d) => d === node);
+    this.syncCollapseBadges();
+    const nodeElement = selectAll_default2(".nodes > g").filter((d) => d === node);
     const dimensions = this.textMeasurer.getNodeDimensions(node.depth, node.data.text);
+    this.buttonRenderer.renderCollapseButton(nodeElement, node, dimensions);
     this.buttonRenderer.renderPlusButton(nodeElement, node, dimensions);
     this.aiAssistant.renderAIButton(nodeElement, node, dimensions);
     if (this.config.isMobile && this.mobileToolbar && !this.nodeEditor.isEditing()) {
       this.mobileToolbar.updatePosition(node, 0, 0);
     }
+  }
+  /**
+   * Sync collapse badges with the current selection state
+   *
+   * Selection does not trigger a re-render — buttons are appended to the
+   * existing DOM — so the badge's "hide while selected" rule has to be
+   * re-applied by hand whenever the selection changes. Without this, the
+   * badge of a newly selected node stays on screen and overlaps the plus
+   * button (both sit at x = width + 4), and a deselected collapsed node
+   * never gets its badge back until the next data-driven render.
+   *
+   * The show/hide rule and the badge markup both live in NodeRenderer, so
+   * this pass can never drift from the initial render.
+   */
+  syncCollapseBadges() {
+    if (!this.currentSvg) {
+      return;
+    }
+    this.currentSvg.selectAll(".nodes > g").each((d, i, nodes) => {
+      const nodeElement = select_default2(nodes[i]);
+      if (shouldShowCollapseBadge(d.data)) {
+        this.nodeRenderer.renderCollapseBadge(nodeElement, d);
+      } else {
+        this.nodeRenderer.removeCollapseBadge(nodeElement);
+      }
+    });
   }
   handleNodeHovered(node) {
     this.hoveredNode = node;
@@ -7163,14 +7303,61 @@ var RendererCoordinator = class {
   }
   handleSelectionCleared() {
     this.selectedNode = null;
+    this.syncCollapseBadges();
     if (this.config.isMobile && this.mobileToolbar) {
       this.mobileToolbar.hide();
     }
   }
   handleNodeDoubleClicked(node, event) {
-    const targetElement = selectAll_default2(".nodes g").filter((d) => d === node).select(".node-unified-text").node();
+    const targetElement = selectAll_default2(".nodes > g").filter((d) => d === node).select(".node-unified-text").node();
     if (targetElement) {
       this.nodeEditor.enableEditing(node, targetElement);
+    }
+  }
+  /**
+   * Toggle a node's collapsed state
+   *
+   * Reuses the existing triggerDataUpdate() path, which re-renders the
+   * layout and saves the file. The snapshot makes the toggle undoable;
+   * expanded is a plain boolean field so UndoManager's deep clone already
+   * captures it.
+   */
+  handleToggleCollapse(node) {
+    if (node.depth === 0) {
+      return;
+    }
+    if (this.currentData) {
+      this.undoManager.saveSnapshot(this.currentData);
+    }
+    const willCollapse = node.data.expanded;
+    if (willCollapse) {
+      this.clearDescendantSelectionStates(node.data);
+    }
+    node.data.expanded = !node.data.expanded;
+    Logger.getInstance().debug("RendererCoordinator", "handleToggleCollapse", {
+      text: node.data.text,
+      expanded: node.data.expanded,
+      childCount: node.data.children.length
+    });
+    this.triggerDataUpdate();
+  }
+  /**
+   * Recursively clear selection/hover state on a node's descendants
+   *
+   * The node itself keeps its state — it stays selected so its button
+   * stack remains usable right after collapsing.
+   */
+  clearDescendantSelectionStates(node) {
+    for (const child of node.children) {
+      if (this.selectedNode && this.selectedNode.data === child) {
+        this.selectedNode = null;
+      }
+      if (this.hoveredNode && this.hoveredNode.data === child) {
+        this.hoveredNode = null;
+      }
+      child.selected = false;
+      child.hovered = false;
+      this.clearDescendantSelectionStates(child);
     }
   }
   handleAddChildNode(node) {
@@ -7260,10 +7447,11 @@ var RendererCoordinator = class {
     if (this.nodeEditor.isEditing()) {
       this.nodeEditor.saveText();
     }
+    this.syncCollapseBadges();
   }
   // ========== Helper Methods ==========
   enterEditModeForNode(node) {
-    const targetElement = selectAll_default2(".nodes g").filter((d) => d.data === node.data).select(".node-unified-text").node();
+    const targetElement = selectAll_default2(".nodes > g").filter((d) => d.data === node.data).select(".node-unified-text").node();
     if (targetElement) {
       this.nodeEditor.enableEditing(node, targetElement);
     }
@@ -7286,6 +7474,8 @@ var RendererCoordinator = class {
     this.hoveredNode = null;
     selectAll_default2(".plus-button-group").remove();
     selectAll_default2(".ai-suggest-button-group").remove();
+    selectAll_default2(".collapse-button-group").remove();
+    this.syncCollapseBadges();
     if (this.config.isMobile && this.mobileToolbar) {
       this.mobileToolbar.hide();
     }
@@ -7439,10 +7629,11 @@ var RendererCoordinator = class {
    */
   restoreSelectionUI() {
     if (!this.currentSvg) return;
-    this.currentSvg.selectAll(".nodes g").each((d, i, nodes) => {
+    this.currentSvg.selectAll(".nodes > g").each((d, i, nodes) => {
       if (d.data.selected) {
         const nodeElement = select_default2(nodes[i]);
         const dimensions = this.textMeasurer.getNodeDimensions(d.depth, d.data.text);
+        this.buttonRenderer.renderCollapseButton(nodeElement, d, dimensions);
         this.buttonRenderer.renderPlusButton(nodeElement, d, dimensions);
         this.aiAssistant.renderAIButton(nodeElement, d, dimensions);
         this.interactionManager["state"].selectedNode = d;
@@ -7476,7 +7667,7 @@ var RendererCoordinator = class {
     if (!this.selectedNode || !this.currentSvg) {
       return;
     }
-    const nodeElements = selectAll_default2(".nodes g");
+    const nodeElements = selectAll_default2(".nodes > g");
     const targetElement = nodeElements.filter((d) => d === this.selectedNode).select(".node-unified-text").node();
     if (targetElement) {
       this.nodeEditor.enableEditing(this.selectedNode, targetElement);
@@ -8319,6 +8510,10 @@ var MindMapService = class {
   }
   /**
    * Create a new child node for the given parent node
+   *
+   * Auto-expands the parent so the new child is visible. This single
+   * point covers all callers: Tab key / plus button, AI suggestions,
+   * and paste.
    */
   createChildNode(parentNode, childText = "New Node") {
     const childNode = {
@@ -8331,6 +8526,7 @@ var MindMapService = class {
       hovered: false
     };
     parentNode.children.push(childNode);
+    parentNode.expanded = true;
     return childNode;
   }
   /**
@@ -8475,7 +8671,7 @@ var MindMapService = class {
     for (const line of lines) {
       const indent = line.search(/\S/);
       const level = Math.floor(indent / 4) + 1;
-      const text = line.trim().substring(1).trim();
+      const text = cleanTextContent(line.trim().substring(1).trim());
       const newNode = {
         text,
         level: parentLevel + level,

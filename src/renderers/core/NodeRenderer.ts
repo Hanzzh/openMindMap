@@ -3,6 +3,7 @@ import { MindMapNode, NodeDimensions } from '../../interfaces/mindmap-interfaces
 import { TextMeasurer } from '../../utils/TextMeasurer';
 import { LayoutCalculator } from '../layout-calculator';
 import { CoordinateConverter } from '../../utils/coordinate-system';
+import { hasHiddenChildren } from '../../utils/mindmap-utils';
 
 /**
  * 是否显示折叠态子节点数徽标
@@ -16,7 +17,7 @@ import { CoordinateConverter } from '../../utils/coordinate-system';
  * @param node 节点数据
  */
 export function shouldShowCollapseBadge(node: MindMapNode): boolean {
-	return !node.expanded && node.children.length > 0 && !node.selected;
+	return hasHiddenChildren(node) && !node.selected;
 }
 
 /**

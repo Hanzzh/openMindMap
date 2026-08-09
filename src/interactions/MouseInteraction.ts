@@ -207,7 +207,7 @@ export class MouseInteraction {
 				.classed("selected-rect", false);
 
 			// 移除选中节点的按钮
-			const selectedNodeElement = d3.selectAll('.nodes g')
+			const selectedNodeElement = d3.selectAll('.nodes > g')
 				.filter((d: d3.HierarchyNode<MindMapNode>) => d === this.selectedNode);
 
 			selectedNodeElement.select('.plus-button-group').remove();
@@ -329,7 +329,7 @@ export class MouseInteraction {
 				.classed("selected-rect", false);
 
 			// 移除之前选中节点的按钮
-			const previousNodeElement = d3.selectAll('.nodes g')
+			const previousNodeElement = d3.selectAll('.nodes > g')
 				.filter((d: d3.HierarchyNode<MindMapNode>) => d === this.selectedNode);
 
 			previousNodeElement.select('.plus-button-group').remove();

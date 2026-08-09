@@ -9,7 +9,7 @@ import { App, Notice, TFile } from 'obsidian';
 import { MindMapData, MindMapNode } from '../interfaces/mindmap-interfaces';
 import { D3FileHandler } from '../handlers/file-handler';
 import { LayoutCalculator } from '../renderers/layout-calculator';
-import { parseMarkdownContent, generateMarkdownFromNodes } from '../utils/mindmap-utils';
+import { parseMarkdownContent, generateMarkdownFromNodes, cleanTextContent } from '../utils/mindmap-utils';
 import { MindMapConfig } from '../config/types';
 import { AIClient, NodeContext } from '../utils/ai-client';
 import { MindMapSettings } from '../main';
@@ -358,7 +358,10 @@ export class MindMapService {
             // 计算当前行的缩进级别
             const indent = line.search(/\S/);
             const level = Math.floor(indent / 4) + 1;
-            const text = line.trim().substring(1).trim(); // 移除 '*'
+            // 用 cleanTextContent 剥离 [collapsed:true] 等行内标记，否则从
+            // 原始 .md 复制的文本会把标记当成节点正文，保存再重载后节点会
+            // "自己改名"（标记那时才被解析掉）。
+            const text = cleanTextContent(line.trim().substring(1).trim()); // 移除 '*'
 
             const newNode: MindMapNode = {
                 text: text,

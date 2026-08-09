@@ -11,6 +11,10 @@ const esbuild = require('esbuild');
 
 // 入口文件必须放在项目内，否则 esbuild 无法解析 d3 依赖
 const entry = path.join(__dirname, `_layout-entry-${Date.now()}.ts`);
+// 断言失败也要清掉临时入口，否则会在 test/ 里留下未被忽略的 .ts 残留
+process.on('exit', () => {
+	try { fs.unlinkSync(entry); } catch { /* 已删除 */ }
+});
 fs.writeFileSync(entry, `
 export { LayoutCalculator } from '../src/renderers/layout-calculator';
 export * as d3 from 'd3';
@@ -86,5 +90,5 @@ assert.ok(
 assert.strictEqual(expandedSibling.x, 175, '展开态 sibling.x 应为 175');
 assert.strictEqual(collapsedSibling.x, 125, '折叠态 sibling.x 应上移至 125');
 
-fs.unlinkSync(entry); fs.unlinkSync(outfile);
+fs.unlinkSync(outfile);
 console.log('\n✅ 折叠布局行为验证通过\n');

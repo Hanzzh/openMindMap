@@ -205,6 +205,25 @@ test('createSiblingNode 不修改任何节点的 expanded 字段', () => {
 	assert.deepStrictEqual(parent.children, [anchor, sibling]);
 });
 
+console.log('\ncreateSubtreeFromMarkdown: 不能把折叠标记当成节点正文');
+
+test('粘贴含 [collapsed:true] 的 markdown → 标记不进入节点文本', () => {
+	const service = makeService();
+	const root = service.createSubtreeFromMarkdown('* 任务 [collapsed:true]', 0);
+	assert.ok(root, '应返回子树根节点');
+	assert.strictEqual(
+		root.text,
+		'任务',
+		'标记必须被剥离，否则保存再重载后节点会"自己改名"'
+	);
+});
+
+test('不含标记的 markdown 文本保持原样', () => {
+	const service = makeService();
+	const root = service.createSubtreeFromMarkdown('* 普通节点', 0);
+	assert.strictEqual(root.text, '普通节点');
+});
+
 console.log('\n按钮栈几何：固定三格');
 
 test('栈高度为 80（三格直径 + 两段间距）', () => {

@@ -179,6 +179,11 @@ export class ClipboardManager {
 			subtreeRoot.parent = node.data;
 			node.data.children.push(subtreeRoot);
 
+			// 这条路径不经过 createChildNode，所以要自己展开父节点：
+			// 否则粘贴到折叠节点上时新子树不可见，且下面把它设为
+			// selected 会让选中态落在一个 hierarchy 之外的节点上。
+			node.data.expanded = true;
+
 			// Clear current selection
 			this.callbacks.clearSelection?.();
 

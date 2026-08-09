@@ -92,6 +92,7 @@ data.json
 # Build artifacts
 *.js
 !main.js
+!test/*.js
 *.css
 !styles.css
 lib/

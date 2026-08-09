@@ -112,6 +112,20 @@ export function getFileNameWithoutExtension(filePath: string): string {
 // ============================================================================
 
 /**
+ * 节点是否有"用户当前看不到的子节点"
+ *
+ * 这是折叠特性里序列化与渲染共用的唯一事实前提：
+ * - 序列化据此决定是否写入 [collapsed:true] 标记
+ * - 渲染据此决定是否显示子节点数徽标（再叠加 !selected）
+ *
+ * 两侧回答的问题不同，但共享这一个前提；抽出来可保证徽标与标记
+ * 永远一致。
+ */
+export function hasHiddenChildren(node: MindMapNode): boolean {
+    return !node.expanded && node.children.length > 0;
+}
+
+/**
  * Check if a line is a markdown list item
  * Requires list marker to be present (not optional)
  */
@@ -157,7 +171,7 @@ export function generateMarkdownFromNodes(rootNode: MindMapNode): string {
         const listPrefix = "*"; // 使用 * 作为列表符号
 
         // 折叠标记：仅当已折叠且确实有子节点时写入，保持文件干净
-        const collapsedMarker = (!node.expanded && node.children.length > 0)
+        const collapsedMarker = hasHiddenChildren(node)
             ? " [collapsed:true]"
             : "";
 

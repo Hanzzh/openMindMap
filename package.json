@@ -12,6 +12,7 @@
 		"lint:fix": "eslint src --fix",
 		"test": "npm run build:core && node test/test-overlap-verification.js",
 		"test:unit": "npm run build:core && node test/unit-tests.js",
+		"test:collapse": "node test/collapse-markdown.test.js && node test/collapse-toggle.test.js && node test/verify-collapse-layout.js",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"keywords": [],

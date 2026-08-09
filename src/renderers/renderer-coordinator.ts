@@ -683,7 +683,7 @@ export class RendererCoordinator implements MindMapRenderer {
 
 	private handleNodeDoubleClicked(node: d3.HierarchyNode<MindMapNode>, event: MouseEvent): void {
 		// Delegate to NodeEditor
-		const targetElement = d3.selectAll('.nodes g')
+		const targetElement = d3.selectAll('.nodes > g')
 			.filter((d: d3.HierarchyNode<MindMapNode>) => d === node)
 			.select('.node-unified-text')
 			.node() as HTMLDivElement;
@@ -900,7 +900,7 @@ export class RendererCoordinator implements MindMapRenderer {
 	// ========== Helper Methods ==========
 
 	private enterEditModeForNode(node: d3.HierarchyNode<MindMapNode>): void {
-		const targetElement = d3.selectAll('.nodes g')
+		const targetElement = d3.selectAll('.nodes > g')
 			.filter((d: d3.HierarchyNode<MindMapNode>) => d.data === node.data)
 			.select('.node-unified-text')
 			.node() as HTMLDivElement;
@@ -1231,7 +1231,7 @@ export class RendererCoordinator implements MindMapRenderer {
 		}
 
 		// Find DOM element through D3 node object comparison (not data object comparison)
-		const nodeElements = d3.selectAll(".nodes g");
+		const nodeElements = d3.selectAll(".nodes > g");
 		const targetElement = nodeElements
 			.filter((d: d3.HierarchyNode<MindMapNode>) => d === this.selectedNode)
 			.select(".node-unified-text")

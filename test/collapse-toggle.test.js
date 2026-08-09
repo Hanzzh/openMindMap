@@ -39,6 +39,12 @@ const { shouldShowCollapseBadge } = nodeRendererBundle.module;
 const undoBundle = bundle('../src/managers/UndoManager.ts', 'undo-manager');
 const { UndoManager } = undoBundle.module;
 
+const clipboardBundle = bundle('../src/features/ClipboardManager.ts', 'clipboard-manager');
+const { ClipboardManager } = clipboardBundle.module;
+
+const serviceBundle = bundle('../src/services/mindmap-service.ts', 'mindmap-service');
+const { MindMapService } = serviceBundle.module;
+
 let passed = 0;
 function test(name, fn) {
 	try {
@@ -312,6 +318,29 @@ test('handleExitEditMode 在确有编辑时先保存再同步徽标', () => {
 	c.handleExitEditMode();
 	assert.strictEqual(saved, 1, '应先保存文本');
 	assert.strictEqual(c._badgeSyncs, 1, '保存后仍应同步徽标');
+});
+
+console.log('\npasteSubtree: 粘贴 markdown 到折叠节点也要自动展开');
+
+test('粘贴子树到折叠节点 → 父节点自动展开', () => {
+	// pasteSubtree 直接 push 到 children，不走 createChildNode，
+	// 所以 Task 2 的自动展开覆盖不到这条路径。
+	const cm = Object.create(ClipboardManager.prototype);
+	cm.mindMapService = new MindMapService({}, {});
+	cm.messages = { notices: {} };
+	cm.callbacks = {};
+
+	const target = makeNode('折叠的目标节点', 1, { expanded: false });
+	const hierarchyNode = { data: target, depth: 1 };
+
+	cm.pasteSubtree(hierarchyNode, '* 粘贴进来的节点');
+
+	assert.strictEqual(
+		target.expanded,
+		true,
+		'否则新子树不可见，且 selected 会落在 hierarchy 之外的节点上'
+	);
+	assert.strictEqual(target.children.length, 1, '子树应被挂上');
 });
 
 fs.unlinkSync(coordinatorBundle.outfile);
