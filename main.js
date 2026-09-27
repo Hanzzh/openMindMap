@@ -8651,7 +8651,12 @@ var MindMapService = class {
     const lines = [];
     function traverse(node, depth) {
       const indent = "    ".repeat(depth - 1);
-      lines.push(`${indent}* ${node.text}`);
+      const textLines = node.text.split("\n");
+      lines.push(`${indent}* ${textLines[0]}`);
+      const continuationIndent = indent + "  ";
+      for (let i = 1; i < textLines.length; i++) {
+        lines.push(`${continuationIndent}${textLines[i]}`);
+      }
       node.children.forEach((child) => traverse(child, depth + 1));
     }
     traverse(rootNode, 1);
@@ -8664,34 +8669,49 @@ var MindMapService = class {
    * @returns 子树的根节点,如果解析失败返回null
    */
   createSubtreeFromMarkdown(markdown, parentLevel) {
+    var _a;
     const lines = markdown.split("\n").filter((line) => line.trim().length > 0);
     if (lines.length === 0) return null;
     let rootNode = null;
     const stack = [];
+    let lastNode = null;
+    let lastIndentLength = 0;
     for (const line of lines) {
-      const indent = line.search(/\S/);
-      const level = Math.floor(indent / 4) + 1;
-      const text = cleanTextContent(line.trim().substring(1).trim());
-      const newNode = {
-        text,
-        level: parentLevel + level,
-        parent: null,
-        children: [],
-        expanded: true,
-        selected: false,
-        hovered: false
-      };
-      while (stack.length > 0 && stack[stack.length - 1].level >= level) {
-        stack.pop();
-      }
-      if (stack.length > 0) {
-        const parent = stack[stack.length - 1].node;
-        parent.children.push(newNode);
-        newNode.parent = parent;
+      if (isListItem(line)) {
+        const parsed = parseListItem(line);
+        if (!parsed) continue;
+        const level = parsed.level + 1;
+        const newNode = {
+          text: parsed.content,
+          level: parentLevel + level,
+          parent: null,
+          children: [],
+          expanded: true,
+          selected: false,
+          hovered: false
+        };
+        while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+          stack.pop();
+        }
+        if (stack.length > 0) {
+          const parent = stack[stack.length - 1].node;
+          parent.children.push(newNode);
+          newNode.parent = parent;
+        } else {
+          rootNode = newNode;
+        }
+        stack.push({ node: newNode, level });
+        lastNode = newNode;
+        lastIndentLength = parsed.indent.length;
       } else {
-        rootNode = newNode;
+        const currentIndent = ((_a = line.match(/^\s*/)) == null ? void 0 : _a[0].length) || 0;
+        if (lastNode && currentIndent > lastIndentLength) {
+          const lineContent = line.trim();
+          if (lineContent) {
+            lastNode.text = lastNode.text + "\n" + lineContent;
+          }
+        }
       }
-      stack.push({ node: newNode, level });
     }
     return rootNode;
   }

@@ -224,6 +224,50 @@ test('不含标记的 markdown 文本保持原样', () => {
 	assert.strictEqual(root.text, '普通节点');
 });
 
+console.log('\n复制/粘贴往返：多行节点文本不破坏子树结构');
+
+test('含续行的节点经 序列化→反序列化 后结构不变', () => {
+	const service = makeService();
+	const root = makeNode('基本知识', 2);
+	const def = link(root, makeNode('正念的定义：...', 3));
+	link(def, makeNode('有目的/有意识', 4));
+	const leadership = link(root, makeNode(
+		'正念领导力：...\n领导力不一定是真实的职务，也是一种能力的体现。',
+		3
+	));
+	link(root, makeNode('正念练习', 3));
+
+	const md = service.serializeSubtreeToMarkdown(root);
+	const parsed = service.createSubtreeFromMarkdown(md, 1);
+
+	assert.ok(parsed, '应返回子树根节点');
+	assert.strictEqual(parsed.text, '基本知识', '根节点必须仍是"基本知识"，不能被续行顶替');
+	assert.strictEqual(parsed.children.length, 3, '应保留三个子节点');
+	assert.strictEqual(
+		parsed.children[1].text,
+		'正念领导力：...\n领导力不一定是真实的职务，也是一种能力的体现。',
+		'多行节点文本必须完整还原，且首字"领"不能被剥掉'
+	);
+	assert.ok(
+		!parsed.children[1].text.startsWith('导力'),
+		'续行首字不能被当列表标记剥掉'
+	);
+});
+
+test('多行根节点也能正确往返', () => {
+	const service = makeService();
+	const root = makeNode('第一行\n第二行', 2);
+	link(root, makeNode('子节点', 3));
+
+	const md = service.serializeSubtreeToMarkdown(root);
+	const parsed = service.createSubtreeFromMarkdown(md, 1);
+
+	assert.ok(parsed, '应返回子树根节点');
+	assert.strictEqual(parsed.text, '第一行\n第二行', '多行根节点文本应完整还原');
+	assert.strictEqual(parsed.children.length, 1, '根节点的子节点应保留');
+	assert.strictEqual(parsed.children[0].text, '子节点');
+});
+
 console.log('\n按钮栈几何：固定三格');
 
 test('栈高度为 80（三格直径 + 两段间距）', () => {

@@ -9,7 +9,7 @@ import { App, Notice, TFile } from 'obsidian';
 import { MindMapData, MindMapNode } from '../interfaces/mindmap-interfaces';
 import { D3FileHandler } from '../handlers/file-handler';
 import { LayoutCalculator } from '../renderers/layout-calculator';
-import { parseMarkdownContent, generateMarkdownFromNodes, cleanTextContent } from '../utils/mindmap-utils';
+import { parseMarkdownContent, generateMarkdownFromNodes, isListItem, parseListItem } from '../utils/mindmap-utils';
 import { MindMapConfig } from '../config/types';
 import { AIClient, NodeContext } from '../utils/ai-client';
 import { MindMapSettings } from '../main';
@@ -330,8 +330,16 @@ export class MindMapService {
         function traverse(node: MindMapNode, depth: number) {
             // 生成缩进(4个空格 * (depth - 1))
             const indent = '    '.repeat(depth - 1);
-            // 生成markdown行
-            lines.push(`${indent}* ${node.text}`);
+
+            // 多行文本：首行带列表标记，续行按 `generateMarkdownFromNodes` 的
+            // 约定加 2 空格缩进。否则粘贴时续行会被当成无缩进的新节点，导致
+            // 子树根节点被顶替、文本首字被当作列表标记剥掉。
+            const textLines = node.text.split('\n');
+            lines.push(`${indent}* ${textLines[0]}`);
+            const continuationIndent = indent + '  ';
+            for (let i = 1; i < textLines.length; i++) {
+                lines.push(`${continuationIndent}${textLines[i]}`);
+            }
 
             // 递归处理子节点
             node.children.forEach(child => traverse(child, depth + 1));
@@ -353,40 +361,57 @@ export class MindMapService {
 
         let rootNode: MindMapNode | null = null;
         const stack: { node: MindMapNode; level: number }[] = [];
+        let lastNode: MindMapNode | null = null;
+        let lastIndentLength = 0;
 
         for (const line of lines) {
-            // 计算当前行的缩进级别
-            const indent = line.search(/\S/);
-            const level = Math.floor(indent / 4) + 1;
-            // 用 cleanTextContent 剥离 [collapsed:true] 等行内标记，否则从
-            // 原始 .md 复制的文本会把标记当成节点正文，保存再重载后节点会
-            // "自己改名"（标记那时才被解析掉）。
-            const text = cleanTextContent(line.trim().substring(1).trim()); // 移除 '*'
+            if (isListItem(line)) {
+                const parsed = parseListItem(line);
+                if (!parsed) continue;
 
-            const newNode: MindMapNode = {
-                text: text,
-                level: parentLevel + level,
-                parent: null,
-                children: [],
-                expanded: true,
-                selected: false,
-                hovered: false
-            };
+                // parsed.level 是缩进级别（0 = 顶层），+1 对齐主解析器的节点层级
+                const level = parsed.level + 1;
 
-            // 找到父节点
-            while (stack.length > 0 && stack[stack.length - 1].level >= level) {
-                stack.pop();
-            }
+                // parseListItem 已在内部用 cleanTextContent 剥离
+                // [collapsed:true] 等行内标记，避免标记进入节点正文
+                const newNode: MindMapNode = {
+                    text: parsed.content,
+                    level: parentLevel + level,
+                    parent: null,
+                    children: [],
+                    expanded: true,
+                    selected: false,
+                    hovered: false
+                };
 
-            if (stack.length > 0) {
-                const parent = stack[stack.length - 1].node;
-                parent.children.push(newNode);
-                newNode.parent = parent;
+                // 找到父节点
+                while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+                    stack.pop();
+                }
+
+                if (stack.length > 0) {
+                    const parent = stack[stack.length - 1].node;
+                    parent.children.push(newNode);
+                    newNode.parent = parent;
+                } else {
+                    rootNode = newNode;
+                }
+
+                stack.push({ node: newNode, level });
+                lastNode = newNode;
+                lastIndentLength = parsed.indent.length;
             } else {
-                rootNode = newNode;
+                // 续行：缩进比上一个列表项更深即可，追加到上一个节点文本。
+                // 与 parseMarkdownContent 的续行处理保持一致，避免续行被当成
+                // 新节点（顶替根节点）或首字被当列表标记剥掉。
+                const currentIndent = line.match(/^\s*/)?.[0].length || 0;
+                if (lastNode && currentIndent > lastIndentLength) {
+                    const lineContent = line.trim();
+                    if (lineContent) {
+                        lastNode.text = lastNode.text + '\n' + lineContent;
+                    }
+                }
             }
-
-            stack.push({ node: newNode, level });
         }
 
         return rootNode;
